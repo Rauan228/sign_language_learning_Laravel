@@ -1,13 +1,17 @@
-# Базовый образ с Nginx+PHP-FPM
-FROM richarvey/nginx-php-fpm:2.2.0
+# Nginx + PHP-FPM + Composer в одном контейнере
+FROM webdevops/php-nginx:8.3
 
-# Laravel будет обслуживаться из public
-ENV WEBROOT=/var/www/html/public
+# Laravel использует public как webroot
+ENV WEB_DOCUMENT_ROOT=/app/public
 
-# Скопировать код
-COPY . /var/www/html
+# Установим нужное расширение MySQL
+RUN install-php-extensions pdo_mysql
 
-# Установить зависимости и подготовить кэш (Composer уже есть в образе)
-RUN composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader --working-dir=/var/www/html \
- && php /var/www/html/artisan config:cache \
- && php /var/www/html/artisan route:cache
+# Копируем код в контейнер
+WORKDIR /app
+COPY . /app
+
+# Устанавливаем зависимости PHP и кэшируем конфиг
+RUN composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader \
+ && php artisan config:cache \
+ && php artisan route:cache
