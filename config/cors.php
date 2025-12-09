@@ -47,6 +47,8 @@ return [
         'https://gesture-path-learn-main-nx0wp0x61-rauans-projects-a38e95f3.vercel.app',
         'https://gesture-path-learn-main-ja137itkb-rauans-projects-a38e95f3.vercel.app',
         'https://gesture-path-learn-main-*.vercel.app',
+        // Direct Vercel domain used in logs
+        'https://sign-language-learning-react-q3rr.vercel.app',
         'https://6327bcce8e75.ngrok-free.app',
         'https://22a2dc9402de.ngrok.app'
     ],
@@ -64,6 +66,8 @@ return [
         // Stable
         '#^https://gesture-path-learn-main\.vercel\.app$#',
         '#^https://[a-z0-9-]+\.ngrok(-free)?\.app$#',
+        // Allow the "sign-language-learning-react" project and its hashed preview domains
+        '#^https://sign-language-learning-react(-[a-z0-9-]+)?\.vercel\.app$#',
         
     ],
 

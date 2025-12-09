@@ -13,8 +13,16 @@ use App\Http\Controllers\CareerTestController;
 // API v1 routes
 Route::prefix('v1')->group(function () {
     // CORS preflight for any route under /api/v1
-    Route::options('/{any}', function () {
-        return response()->noContent(204);
+    // Explicitly echo Origin and requested headers to satisfy browser checks
+    Route::options('/{any}', function (\Illuminate\Http\Request $request) {
+        $origin = $request->headers->get('Origin', '*');
+        $reqHeaders = $request->headers->get('Access-Control-Request-Headers', '*');
+
+        return response()->noContent(204)->withHeaders([
+            'Access-Control-Allow-Origin' => $origin,
+            'Access-Control-Allow-Methods' => 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers' => $reqHeaders,
+        ]);
     })->where('any', '.*');
 
     // Public routes
