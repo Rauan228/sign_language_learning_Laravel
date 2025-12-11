@@ -315,6 +315,9 @@ class AdminController extends Controller
 
         $lesson = Lesson::create($lessonData);
 
+        $updateData = [];
+        $gestureData = [];
+
         // Handle video upload
         if ($request->hasFile('video')) {
             $video = $request->file('video');
@@ -329,6 +332,8 @@ class AdminController extends Controller
                 'mime' => $video->getMimeType(),
                 'is_default' => true
             ]);
+
+            $updateData['video_url'] = $videoPath;
         }
 
         // Handle 3D model upload
@@ -345,6 +350,8 @@ class AdminController extends Controller
                 'mime' => $model->getMimeType(),
                 'is_default' => true
             ]);
+
+            $gestureData['model_url'] = $modelPath;
         }
 
         // Handle subtitles upload
@@ -362,6 +369,16 @@ class AdminController extends Controller
                 'captions' => ['vtt', 'srt'],
                 'is_default' => true
             ]);
+
+            $gestureData['subtitles_url'] = $subtitlesPath;
+        }
+
+        if (!empty($gestureData)) {
+            $updateData['gesture_data'] = $gestureData;
+        }
+
+        if (!empty($updateData)) {
+            $lesson->update($updateData);
         }
 
         $lessonData['is_published'] = false;

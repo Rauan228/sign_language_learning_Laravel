@@ -92,7 +92,9 @@ class LessonController extends Controller
         }
 
         // Check if user has access to the course
-        $user = auth()->user();
+        $user = auth('sanctum')->user();
+        $userProgress = null;
+
         if ($user) {
             // Check if course is free or user has purchased it
             $course = $lesson->module->course;
@@ -107,6 +109,11 @@ class LessonController extends Controller
                     'message' => 'Access denied. Please purchase the course.'
                 ], 403);
             }
+
+            // Get user progress
+            $userProgress = Progress::where('user_id', $user->id)
+                ->where('lesson_id', $lesson->id)
+                ->first();
         }
 
         // Get video URL from lesson_media table or fallback to lesson.video_url
@@ -203,6 +210,7 @@ class LessonController extends Controller
             'success' => true,
             'data' => [
                 'lesson' => $lesson,
+                'user_progress' => $userProgress,
                 'subtitles' => $subtitles,
                 'fullText' => $fullText,
                 'gesture_data' => $lesson->gesture_data,
@@ -458,6 +466,20 @@ class LessonController extends Controller
         $timeSpentMinutes = ceil($watchedDuration / 60);
         $lastPosition = $request->input('lastPositionSeconds', $watchedDuration);
 
+        // Calculate percentage based on lesson duration
+        $durationMinutes = $lesson->duration_minutes ?: 10; // Fallback to 10 minutes if not set
+        $durationSeconds = $durationMinutes * 60;
+        
+        $completionPercentage = 0;
+        if ($isCompleted) {
+            $completionPercentage = 100;
+        } else {
+            // If watchedDuration is provided, calculate percentage relative to lesson duration
+            if ($durationSeconds > 0) {
+                $completionPercentage = min(100, ceil(($watchedDuration / $durationSeconds) * 100));
+            }
+        }
+
         // Short-circuit if no meaningful changes to reduce DB load
         $existing = Progress::where('user_id', $user->id)
             ->where('course_id', $lesson->module->course_id)
@@ -494,7 +516,7 @@ class LessonController extends Controller
             ],
             [
                 'status' => $isCompleted ? 'completed' : 'in_progress',
-                'completion_percentage' => $isCompleted ? 100 : min(90, ceil(($watchedDuration / 600) * 100)), // Assume 10min videos
+                'completion_percentage' => $completionPercentage,
                 'time_spent_minutes' => $timeSpentMinutes,
                 'watched_duration' => $watchedDuration,
                 'last_position_seconds' => $lastPosition,
