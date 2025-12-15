@@ -8,7 +8,11 @@ use App\Models\CareerTestResult;
 
 $result = CareerTestResult::find(2);
 if ($result && $result->ai_analysis) {
-    $analysis = is_array($result->ai_analysis) ? $result->ai_analysis : json_decode($result->ai_analysis, true);
+    $analysisData = $result->ai_analysis;
+    if (!is_string($analysisData)) {
+        $analysisData = json_encode($analysisData);
+    }
+    $analysis = is_array($result->ai_analysis) ? $result->ai_analysis : json_decode($analysisData, true);
     if (isset($analysis['analysis']['detailed_report'])) {
         echo 'ДЕТАЛЬНЫЙ ОТЧЕТ:' . PHP_EOL;
         echo $analysis['analysis']['detailed_report'] . PHP_EOL;

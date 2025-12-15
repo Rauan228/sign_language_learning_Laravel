@@ -35,5 +35,8 @@ class DatabaseSeeder extends Seeder
         
         // Seed career tests
         $this->call(CareerTestSeeder::class);
+
+        // Seed career jobs
+        $this->call(CareerJobSeeder::class);
     }
 }

@@ -14,7 +14,7 @@ use App\Http\Controllers\CareerTestController;
 Route::prefix('v1')->group(function () {
     // CORS preflight for any route under /api/v1
     // Explicitly echo Origin and requested headers to satisfy browser checks
-    Route::options('/{any}', function (\Illuminate\Http\Request $request) {
+    Route::options('/{any}', function (Request $request) {
         $origin = $request->headers->get('Origin', '*');
         $reqHeaders = $request->headers->get('Access-Control-Request-Headers', '*');
 
@@ -47,6 +47,12 @@ Route::prefix('v1')->group(function () {
     // Public career test routes
     Route::get('/career-tests', [CareerTestController::class, 'index']);
     Route::get('/career-tests/{id}', [CareerTestController::class, 'show']);
+
+    // Public career job routes
+    Route::prefix('career')->group(function () {
+        Route::get('/jobs', [\App\Http\Controllers\Api\CareerJobController::class, 'index']);
+        Route::get('/jobs/{id}', [\App\Http\Controllers\Api\CareerJobController::class, 'show']);
+    });
     
     // Storage file routes with CORS support
     Route::get('/storage/lessons/models/{filename}', function ($filename) {
@@ -182,6 +188,26 @@ Route::post('/courses/{id}/enroll', [CourseController::class, 'enroll']);
                 'message' => 'Gesture recognition endpoint - to be implemented',
                 'data' => null
             ]);
+        });
+
+        // Visual Mind Career Routes
+        Route::prefix('career')->group(function () {
+            // Employer routes
+            Route::post('/jobs', [\App\Http\Controllers\Api\CareerJobController::class, 'store']);
+            Route::put('/jobs/{id}', [\App\Http\Controllers\Api\CareerJobController::class, 'update']);
+            Route::delete('/jobs/{id}', [\App\Http\Controllers\Api\CareerJobController::class, 'destroy']);
+            Route::get('/my-jobs', [\App\Http\Controllers\Api\CareerJobController::class, 'myJobs']);
+
+            // Resume routes
+            Route::get('/my-resume', [\App\Http\Controllers\Api\ResumeController::class, 'myResume']);
+            Route::post('/resume', [\App\Http\Controllers\Api\ResumeController::class, 'store']);
+            Route::get('/resumes/{id}', [\App\Http\Controllers\Api\ResumeController::class, 'show']);
+
+            // Application routes
+            Route::post('/apply', [\App\Http\Controllers\Api\JobApplicationController::class, 'store']);
+            Route::get('/my-applications', [\App\Http\Controllers\Api\JobApplicationController::class, 'myApplications']);
+            Route::get('/job-applications', [\App\Http\Controllers\Api\JobApplicationController::class, 'index']); // ?job_id=X
+            Route::patch('/applications/{id}/status', [\App\Http\Controllers\Api\JobApplicationController::class, 'updateStatus']);
         });
     });
 });

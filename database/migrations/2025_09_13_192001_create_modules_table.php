@@ -11,18 +11,20 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('modules', function (Blueprint $table) {
-            $table->id();
-            $table->unsignedBigInteger('course_id');
-            $table->string('title', 255);
-            $table->text('description')->nullable();
-            $table->integer('order_index')->default(0);
-            $table->boolean('is_published')->default(true);
-            $table->timestamps();
-            
-            $table->foreign('course_id')->references('id')->on('courses')->onDelete('cascade');
-            $table->index(['course_id', 'order_index']);
-        });
+        if (!Schema::hasTable('modules')) {
+            Schema::create('modules', function (Blueprint $table) {
+                $table->id();
+                $table->unsignedBigInteger('course_id');
+                $table->string('title', 255);
+                $table->text('description')->nullable();
+                $table->integer('order_index')->default(0);
+                $table->boolean('is_published')->default(true);
+                $table->timestamps();
+
+                $table->foreign('course_id')->references('id')->on('courses')->onDelete('cascade');
+                $table->index(['course_id', 'order_index']);
+            });
+        }
     }
 
     /**
