@@ -50,6 +50,7 @@ Route::prefix('v1')->group(function () {
 
     // Public career job routes
     Route::prefix('career')->group(function () {
+        Route::get('/jobs/recommended', [\App\Http\Controllers\Api\CareerJobController::class, 'recommended']);
         Route::get('/jobs', [\App\Http\Controllers\Api\CareerJobController::class, 'index']);
         Route::get('/jobs/{id}', [\App\Http\Controllers\Api\CareerJobController::class, 'show']);
     });

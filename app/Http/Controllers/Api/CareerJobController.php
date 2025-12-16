@@ -68,6 +68,125 @@ class CareerJobController extends Controller
         return response()->json($query->latest()->paginate(10));
     }
 
+    public function recommended(Request $request)
+    {
+        $user = Auth::guard('sanctum')->user();
+        
+        // If no user, return latest active jobs as generic recommendations
+        if (!$user) {
+            $jobs = CareerJob::where('status', 'active')
+                ->with('employer')
+                ->latest()
+                ->take(5)
+                ->get()
+                ->map(function ($job) {
+                    $job->matchScore = 0;
+                    $job->matchReasons = ['Популярная вакансия'];
+                    $job->recommendationType = 'standard';
+                    return $job;
+                });
+            return response()->json($jobs);
+        }
+
+        // Try to get user's resume
+        $resume = \App\Models\Resume::where('user_id', $user->id)->first();
+
+        // Start query
+        $query = CareerJob::where('status', 'active')->with('employer');
+
+        if (!$resume) {
+             // If logged in but no resume, return latest
+             $jobs = $query->latest()->take(10)->get()->map(function ($job) {
+                $job->matchScore = 10;
+                $job->matchReasons = ['Новая вакансия'];
+                $job->recommendationType = 'standard';
+                return $job;
+            });
+            return response()->json($jobs);
+        }
+
+        // Simple content-based filtering using SQL
+        // 1. Match title
+        $query->where(function($q) use ($resume) {
+            $q->where('title', 'like', "%{$resume->title}%")
+              ->orWhere('description', 'like', "%{$resume->title}%");
+            
+            // 2. Match skills (if any)
+            if ($resume->skills && is_array($resume->skills)) {
+                foreach ($resume->skills as $skill) {
+                    $q->orWhere('description', 'like', "%{$skill}%");
+                }
+            }
+        });
+
+        $jobs = $query->take(10)->get();
+
+        // Calculate scores in PHP to be more precise
+        $jobs = $jobs->map(function ($job) use ($resume) {
+            $score = 0;
+            $reasons = [];
+            $type = 'standard';
+
+            // Title match
+            if (stripos($job->title, $resume->title) !== false) {
+                $score += 40;
+                $reasons[] = "Совпадает должность: {$resume->title}";
+            }
+
+            // Skills match
+            if ($resume->skills && is_array($resume->skills)) {
+                $matchedSkills = [];
+                foreach ($resume->skills as $skill) {
+                    if (stripos($job->description, $skill) !== false) {
+                        $matchedSkills[] = $skill;
+                    }
+                }
+                if (count($matchedSkills) > 0) {
+                    $score += 20 + (count($matchedSkills) * 5);
+                    $reasons[] = "Навыки: " . implode(', ', array_slice($matchedSkills, 0, 3));
+                }
+            }
+
+            // Accessibility
+            if ($job->accessibility_features && $resume->accessibility_needs) {
+                // Handle array or string (due to casts)
+                $jobFeatures = $job->accessibility_features;
+                if (is_string($jobFeatures)) {
+                    $jobFeatures = json_decode($jobFeatures, true);
+                }
+
+                $resumeNeeds = $resume->accessibility_needs;
+                if (is_string($resumeNeeds)) {
+                    $resumeNeeds = json_decode($resumeNeeds, true);
+                }
+                
+                if (is_array($jobFeatures) && is_array($resumeNeeds)) {
+                    $matches = array_intersect($jobFeatures, $resumeNeeds);
+                    if (count($matches) > 0) {
+                        $score += 30;
+                        $reasons[] = "Доступность: подходит под ваши нужды";
+                        $type = 'ai'; // Boosted relevance
+                    }
+                }
+            }
+
+            // Normalize
+            $score = min(100, $score);
+            if ($score < 10) $score = 10; // Minimum visibility
+
+            $job->matchScore = $score;
+            $job->matchReasons = $reasons;
+            $job->recommendationType = $type;
+            
+            return $job;
+        });
+
+        // Sort by score
+        $sorted = $jobs->sortByDesc('matchScore')->values();
+
+        return response()->json($sorted);
+    }
+
     // Создание вакансии (Работодатель)
     public function store(Request $request)
     {

@@ -136,34 +136,360 @@ class CareerTestController extends Controller
     }
 
     /**
-     * Получить анализ от ИИ
+     * Получить анализ от ИИ (или эмуляцию)
      */
     private function getAIAnalysis($test, $answers, $disabilityInfo = null): array
     {
         try {
-            // Используем нашу новую систему детального анализа
+            // Анализируем ответы для получения базовой статистики
             $statistics = $this->analyzeAnswersStatistics($answers, $disabilityInfo);
-            $inclinations = $this->determineProfessionalInclinations($statistics['category_stats']);
-            $careerMatches = $this->calculateCareerMatches($statistics['category_stats'], $disabilityInfo);
             
-            // Формируем детальный анализ
-            $analysis = [
-                'personality_traits' => $this->generatePersonalityTraits($statistics['category_stats']),
-                'suitable_careers' => $careerMatches,
-                'skills_to_develop' => $this->generateSkillsToImprove($statistics['category_stats']),
-                'learning_recommendations' => $this->generateLearningRecommendations($statistics['category_stats']),
-                'accessibility_considerations' => $this->generateAccessibilityConsiderations($disabilityInfo),
-                'summary' => $this->generateAnalysisSummary($statistics, $inclinations),
-                'detailed_report' => $this->generateDetailedReport($statistics, $inclinations, $careerMatches, $disabilityInfo)
+            // Генерируем "Человеческий" отчет в идеальной структуре Visual Mind Career
+            return [
+                'intro' => "Этот отчёт — не оценка и не приговор. Это навигатор, который показывает варианты, подходящие именно вам, с учётом ваших особенностей, возможностей и комфорта.",
+                'personal_profile' => $this->generatePersonalProfile($statistics, $disabilityInfo),
+                'accessibility_map' => $this->generateAccessibilityMap($statistics, $disabilityInfo),
+                'strengths' => $this->generateStrengths($statistics),
+                'professional_scenarios' => $this->generateProfessionalScenarios($statistics, $disabilityInfo),
+                'risks_and_limits' => $this->generateRisksAndLimits($statistics, $disabilityInfo),
+                'growth_areas' => $this->generateGrowthAreas($statistics),
+                'next_steps' => $this->generateNextSteps($statistics),
+                'ai_explanation' => $this->generateAIExplanation($statistics),
+                'summary' => "Анализ завершен успешно."
             ];
-            
-            return $analysis;
             
         } catch (\Exception $e) {
             Log::error('AI Analysis Error: ' . $e->getMessage());
             return $this->getFallbackAnalysis($answers, $disabilityInfo);
         }
     }
+
+    /**
+     * Фоллбэк анализ
+     */
+    private function getFallbackAnalysis($answers, $disabilityInfo): array
+    {
+        return [
+            'intro' => "Этот отчёт — не оценка и не приговор.",
+            'personal_profile' => "Мы проанализировали ваши ответы. Вы — человек, стремящийся к развитию.",
+            'accessibility_map' => [
+                'suitable' => ["Индивидуальный темп"],
+                'conditional' => ["Офис (тихий)"],
+                'not_recommended' => ["Шумные производства"]
+            ],
+            'strengths' => ["Стремление к росту", "Ответственность"],
+            'professional_scenarios' => [
+                'main' => [
+                    'title' => 'Удаленная работа с информацией',
+                    'reasoning' => 'Минимизирует стресс и физическую нагрузку.',
+                    'roles' => ['Копирайтер', 'Оператор ввода данных'],
+                    'format' => 'Удаленно',
+                    'risks' => 'Монотонность'
+                ],
+                'alternative' => [
+                    'title' => 'Административная поддержка',
+                    'reasoning' => 'Структурированные задачи.',
+                    'roles' => ['Ассистент'],
+                    'format' => 'Удаленно/Гибрид',
+                    'risks' => 'Коммуникационная перегрузка'
+                ],
+                'potential' => [
+                    'title' => 'IT-специальности',
+                    'reasoning' => 'Высокий потенциал роста.',
+                    'roles' => ['QA-тестировщик'],
+                    'format' => 'Удаленно',
+                    'risks' => 'Высокая когнитивная нагрузка'
+                ]
+            ],
+            'risks_and_limits' => ["Избегайте перегрузок"],
+            'growth_areas' => ["Изучение цифровых инструментов"],
+            'next_steps' => [
+                'immediate' => "Пройти вводный урок",
+                'short_term' => "Составить резюме",
+                'long_term' => "Найти стажировку"
+            ],
+            'ai_explanation' => "Базовый анализ на основе ключевых слов.",
+            'summary' => "Базовый анализ."
+        ];
+    }
+
+    /**
+     * 1. ПЕРСОНАЛЬНЫЙ ПРОФИЛЬ (глубокий)
+     */
+    private function generatePersonalProfile($statistics, $disabilityInfo): string
+    {
+        $profile = [];
+        $cats = $statistics['category_stats'];
+        $transcript = $statistics['transcript'];
+
+        // Стиль работы и среда
+        $introvert = false;
+        foreach ($transcript as $item) {
+             if (mb_stripos($item['question'], 'интроверт') !== false && mb_stripos($item['answer'], 'Интроверт') !== false) {
+                 $introvert = true;
+             }
+        }
+        
+        if ($introvert) {
+            $profile[] = "Вы лучше всего чувствуете себя в спокойной, предсказуемой рабочей среде, где можно сосредоточиться на задачах без лишнего социального давления.";
+        } else {
+             $profile[] = "Вам комфортно в динамичной среде, где есть возможность общаться и взаимодействовать с людьми.";
+        }
+
+        // Автономность
+        if (($cats['Самостоятельность']['percentage'] ?? 0) > 70) {
+            $profile[] = "Вы достаточно самостоятельны, умеете работать без постоянного контроля и берёте ответственность за результат в комфортных для себя рамках.";
+        } else {
+            $profile[] = "Вам комфортнее работать с четкими инструкциями и поддержкой наставника на первых этапах.";
+        }
+
+        // Отношение к нагрузке (из новых вопросов)
+        $energyIssues = false;
+        foreach ($transcript as $t) {
+            if (mb_stripos($t['question'], 'усталость') !== false && mb_stripos($t['answer'], 'часто') !== false) $energyIssues = true;
+        }
+
+        if ($energyIssues || $disabilityInfo) {
+            $profile[] = "Для вас важно сохранять баланс между работой и отдыхом — это не слабость, а условие, при котором вы работаете устойчиво и качественно.";
+        } else {
+             $profile[] = "Вы обладаете хорошим запасом энергии, но важно не забывать о перерывах для профилактики выгорания.";
+        }
+        
+        // Сильная особенность
+        if (($cats['Внимание']['percentage'] ?? 0) > 70) {
+            $profile[] = "В комфортных условиях вы проявляете исключительную внимательность и способность к глубокой концентрации.";
+        } elseif (($cats['Коммуникация']['percentage'] ?? 0) > 70) {
+            $profile[] = "Ваша сильная сторона — умение находить общий язык и договариваться.";
+        }
+
+        return implode("\n\n", $profile);
+    }
+
+    /**
+     * 2. КАРТА ДОСТУПНОСТИ (структурированная)
+     */
+    private function generateAccessibilityMap($statistics, $disabilityInfo): array
+    {
+        $map = [
+            'suitable' => [],       // ✔ Подходит
+            'conditional' => [],    // ⚠ Допустимо при условиях
+            'not_recommended' => [] // ✖ Не рекомендуется
+        ];
+
+        $transcript = $statistics['transcript'];
+
+        // Базовые (безопасные) предположения
+        $map['suitable'][] = "Гибкий или предсказуемый график";
+        $map['suitable'][] = "Задачи с чётким описанием";
+
+        // Анализ ответов
+        foreach ($transcript as $t) {
+            // Формат работы
+            if (mb_stripos($t['question'], 'формат работы') !== false) {
+                if (mb_stripos($t['answer'], 'Удалённо') !== false) {
+                    $map['suitable'][] = "Удалённая работа";
+                    $map['conditional'][] = "Гибридный формат (если есть возможность отдыха)";
+                    $map['not_recommended'][] = "Работа в шумном офисе open-space";
+                } elseif (mb_stripos($t['answer'], 'Офис') !== false) {
+                    $map['suitable'][] = "Работа в офисе";
+                    $map['conditional'][] = "Удаленная работа (при наличии самодисциплины)";
+                }
+            }
+
+            // Нагрузка
+            if (mb_stripos($t['question'], 'переутомлению') !== false) {
+                 $risks = explode(',', $t['answer']); // Множественный выбор часто через запятую
+                 foreach ($risks as $risk) {
+                     $risk = trim($risk);
+                     if (mb_stripos($risk, 'Физическая') !== false) {
+                         $map['not_recommended'][] = "Физическая нагрузка";
+                     }
+                     if (mb_stripos($risk, 'Шум') !== false) {
+                         $map['not_recommended'][] = "Высокая сенсорная перегрузка (шум, суета)";
+                         $map['conditional'][] = "Офисная работа — только при тишине";
+                     }
+                     if (mb_stripos($risk, 'Дедлайны') !== false) {
+                         $map['not_recommended'][] = "Работа в условиях постоянного давления и срочных дедлайнов";
+                     }
+                      if (mb_stripos($risk, 'общение') !== false) {
+                         $map['not_recommended'][] = "Работа с большим потоком людей (колл-центр, ресепшн)";
+                         $map['suitable'][] = "Работа с документами и текстами";
+                     }
+                 }
+            }
+        }
+        
+        // Анализ disabilityInfo
+        if ($disabilityInfo) {
+            $text = mb_strtolower($disabilityInfo);
+            if (mb_strpos($text, 'спина') !== false || mb_strpos($text, 'ноги') !== false) {
+                $map['not_recommended'][] = "Работа «на ногах» или с поднятием тяжестей";
+                $map['suitable'][] = "Сидячая работа с возможностью разминки";
+            }
+             if (mb_strpos($text, 'зрение') !== false) {
+                $map['conditional'][] = "Работа с компьютером — при наличии программ экранного доступа или увеличении шрифта";
+            }
+        }
+
+        // Убираем дубли
+        $map['suitable'] = array_unique($map['suitable']);
+        $map['conditional'] = array_unique($map['conditional']);
+        $map['not_recommended'] = array_unique($map['not_recommended']);
+
+        return $map;
+    }
+
+    /**
+     * 3. СИЛЬНЫЕ СТОРОНЫ И РЕСУРСЫ (фокус на опору)
+     */
+    private function generateStrengths($statistics): array
+    {
+        $strengths = [];
+        $cats = $statistics['category_stats'];
+
+        if (($cats['Навыки']['percentage'] ?? 0) > 50) $strengths[] = "Уверенное владение цифровыми инструментами";
+        if (($cats['Самостоятельность']['percentage'] ?? 0) > 60) $strengths[] = "Способность работать самостоятельно и доводить задачи до конца";
+        $strengths[] = "Ответственность и надёжность"; // Базовое для всех, кто прошел тест до конца
+        $strengths[] = "Честное и зрелое понимание своих возможностей"; // Сам факт прохождения теста
+        
+        if (($cats['Обучение']['percentage'] ?? 0) > 60) $strengths[] = "Готовность развиваться и искать подходящий формат";
+
+        return array_slice($strengths, 0, 5);
+    }
+
+    /**
+     * 4. ПРОФЕССИОНАЛЬНЫЕ СЦЕНАРИИ (сценарии с рисками)
+     */
+    private function generateProfessionalScenarios($statistics, $disabilityInfo): array
+    {
+        $cats = $statistics['category_stats'];
+        $transcript = $statistics['transcript'];
+
+        // Логика выбора сценариев
+        $scenarios = [
+            'main' => null,
+            'alternative' => null,
+            'potential' => null
+        ];
+
+        // 1. Сценарий "Информация" (базовый для многих)
+        $infoScenario = [
+            'title' => 'Работа с информацией и документами',
+            'reasoning' => 'Этот формат опирается на внимательность и цифровые навыки. Он минимизирует физическую нагрузку и снижает стресс от интенсивного общения.',
+            'roles' => ['Оператор ввода данных', 'Транскрибатор', 'Модератор контента', 'Копирайтер / Рерайтер'],
+            'format' => 'Удалённо или гибко',
+            'risks' => 'Монотонность — важно чередовать задачи и делать перерывы.'
+        ];
+
+        // 2. Сценарий "Сервис/Поддержка" (для коммуникабельных)
+        $supportScenario = [
+            'title' => 'Поддерживающие и сервисные цифровые роли',
+            'reasoning' => 'Подходит, если вы хотите больше разнообразия и общения, но в комфортном текстовом формате без звонков.',
+            'roles' => ['Помощник администратора (онлайн)', 'Специалист чат-поддержки', 'Ассистент в онлайн-проектах'],
+            'format' => 'Удалённо, с чёткими инструкциями',
+            'risks' => 'Перегрузка при плохой организации — важно заранее обсуждать объём задач.'
+        ];
+
+        // 3. Сценарий "Творчество" (для креативных)
+        $creativeScenario = [
+            'title' => 'Творческая работа и дизайн',
+            'reasoning' => 'Позволяет выразить себя и работать на результат, часто в свободном графике.',
+            'roles' => ['Графический дизайнер (junior)', 'Обработка фото', 'Иллюстратор'],
+            'format' => 'Фриланс или проектная работа',
+            'risks' => 'Нестабильность заказов и творческое выгорание.'
+        ];
+
+        // 4. Сценарий "Аналитика/IT" (для системных)
+        $techScenario = [
+            'title' => 'Технические и аналитические задачи',
+            'reasoning' => 'Работа с четкими системами и логикой. Минимум хаоса, максимум структуры.',
+            'roles' => ['Тестировщик (QA Manual)', 'Младший аналитик данных', 'Контент-менеджер (технический)'],
+            'format' => 'Удаленно, полный день',
+            'risks' => 'Высокая когнитивная нагрузка и необходимость постоянного обучения.'
+        ];
+
+        // Определение основного сценария
+        if (($cats['Мышление']['percentage'] ?? 0) > 60 && ($cats['Навыки']['percentage'] ?? 0) > 60) {
+            $scenarios['main'] = $techScenario;
+            $scenarios['alternative'] = $infoScenario;
+        } elseif (($cats['Интересы']['percentage'] ?? 0) > 70) { // Условно творческий
+            $scenarios['main'] = $creativeScenario;
+            $scenarios['alternative'] = $supportScenario;
+        } else {
+            $scenarios['main'] = $infoScenario;
+            $scenarios['alternative'] = $supportScenario;
+        }
+
+        // Потенциальный сценарий (на вырост)
+        $scenarios['potential'] = [
+            'title' => 'Расширение профессиональных горизонтов',
+            'reasoning' => 'Если со временем вы захотите усложнить задачи.',
+            'roles' => ['Обучение смежным цифровым навыкам', 'Более сложная работа с текстами'],
+            'format' => 'Обучение + практика',
+            'risks' => 'Этот сценарий не обязателен сейчас и может рассматриваться позже.'
+        ];
+
+        return $scenarios;
+    }
+
+    /**
+     * 5. РИСКИ И БЕРЕЖНЫЕ ОГРАНИЧЕНИЯ
+     */
+    private function generateRisksAndLimits($statistics, $disabilityInfo): array
+    {
+        $risks = [];
+        $transcript = $statistics['transcript'];
+
+        foreach ($transcript as $t) {
+            if (mb_stripos($t['question'], 'переутомлению') !== false) {
+                if (mb_stripos($t['answer'], 'Физическая') !== false) $risks[] = "Чрезмерная физическая нагрузка может быстро привести к ухудшению самочувствия.";
+                if (mb_stripos($t['answer'], 'Шум') !== false) $risks[] = "Сенсорная перегрузка (шум, яркий свет) снижает концентрацию и качество работы.";
+                if (mb_stripos($t['answer'], 'Дедлайны') !== false) $risks[] = "Работа в режиме «горящих сроков» создает опасный уровень стресса.";
+                if (mb_stripos($t['answer'], 'Монотонность') !== false) $risks[] = "Длительная монотонная работа может вызывать утомление быстрее, чем сложные задачи.";
+            }
+        }
+        
+        if (empty($risks)) {
+             $risks[] = "Если вы чувствуете усталость или напряжение — это сигнал замедлиться, а не «пересилить себя».";
+             $risks[] = "Неопределённость задач и постоянные изменения повышают стресс.";
+        }
+
+        return array_unique($risks);
+    }
+
+    /**
+     * 6. ЧТО СТОИТ РАЗВИВАТЬ (мягко)
+     */
+    private function generateGrowthAreas($statistics): array // Дубликат, но оставим для совместимости
+    {
+         return [
+            "Попробовать короткие онлайн-курсы (без долгих обязательств).",
+            "Поэкспериментировать с разным временем работы, чтобы найти свой ритм.",
+            "Постепенно формировать понимание, какие задачи приносят больше удовлетворения."
+        ];
+    }
+
+    /**
+     * 7. ПЕРСОНАЛЬНЫЕ СЛЕДУЮЩИЕ ШАГИ (Timeline)
+     */
+    private function generateNextSteps($statistics): array
+    {
+        return [
+            'immediate' => "Пройти 1–2 бесплатных вводных урока по выбранным сценариям.",
+            'short_term' => "Составить простое резюме, делая акцент на сильных сторонах и комфортных условиях работы.",
+            'medium_term' => "Посмотреть вакансии с фильтрами «удалённо» и «доступно для людей с инвалидностью».",
+            'long_term' => "Попробовать выполнить тестовое задание для себя, без давления и отправки работодателю."
+        ];
+    }
+
+    /**
+     * 8. КАК ИИ ЭТО ПОНЯЛ
+     */
+    private function generateAIExplanation($statistics): string
+    {
+        return "Эти рекомендации основаны на ваших ответах о формате работы, уровне самостоятельности, реакции на стресс и предпочтениях в задачах. Мы анализировали не только навыки, но и условия, в которых вы сможете работать устойчиво.";
+    }
+
 
     /**
      * Формирование промпта для ИИ с детальной статистикой
@@ -177,33 +503,20 @@ class CareerTestController extends Controller
         $prompt .= "Название теста: {$test->title}\n";
         $prompt .= "Описание: {$test->description}\n\n";
 
-        $prompt .= "ДЕТАЛЬНАЯ СТАТИСТИКА ОТВЕТОВ:\n\n";
-        $prompt .= "Общий результат: {$statistics['overall_score']}/{$statistics['total_questions']} вопросов ({$statistics['overall_percentage']}%)\n\n";
+        $prompt .= "ПОЛНЫЙ ТРАНСКРИПТ ОТВЕТОВ:\n";
+        foreach ($statistics['transcript'] as $item) {
+            $prompt .= "В: {$item['question']} (Категория: {$item['category']})\n";
+            $prompt .= "О: {$item['answer']}\n\n";
+        }
 
-        // Выводим статистику по категориям
+        $prompt .= "ДЕТАЛЬНАЯ СТАТИСТИКА (для шкалированных вопросов):\n\n";
+        // Выводим статистику по категориям только если есть баллы
         foreach ($statistics['category_stats'] as $categoryName => $stats) {
-            $prompt .= "=== {$categoryName} ===\n";
-            $prompt .= "Результат: {$stats['total_score']}/{$stats['max_score']} баллов ({$stats['percentage']}%)\n";
-            $prompt .= "Уровень: {$stats['level']}\n";
-            $prompt .= "Средний балл: {$stats['average_score']}/4\n";
-            $prompt .= "Количество высоких оценок (3-4): " . count($stats['high_scores']) . "\n";
-            $prompt .= "Количество низких оценок (0-1): " . count($stats['low_scores']) . "\n\n";
-        }
-
-        $prompt .= "ВЫЯВЛЕННЫЕ ПРОФЕССИОНАЛЬНЫЕ СКЛОННОСТИ:\n";
-        foreach ($statistics['professional_inclinations'] as $inclination) {
-            $prompt .= "• {$inclination}\n";
-        }
-        $prompt .= "\n";
-
-        $prompt .= "РАССЧИТАННЫЕ СООТВЕТСТВИЯ ПРОФЕССИЯМ:\n";
-        foreach ($statistics['career_matches'] as $career) {
-            $prompt .= "• {$career['title']}: {$career['match_percentage']}% соответствия\n";
-            $prompt .= "  Описание: {$career['description']}\n";
-            foreach ($career['detailed_analysis'] as $analysis) {
-                $prompt .= "  - {$analysis['category']}: {$analysis['user_score']}% (требуется {$analysis['required']}%) - {$analysis['analysis']}\n";
+            if ($stats['max_score'] > 0) {
+                $prompt .= "=== {$categoryName} ===\n";
+                $prompt .= "Результат: {$stats['total_score']}/{$stats['max_score']} баллов ({$stats['percentage']}%)\n";
+                $prompt .= "Средний балл: {$stats['average_score']}/4\n\n";
             }
-            $prompt .= "\n";
         }
 
         if ($disabilityInfo) {
@@ -211,477 +524,26 @@ class CareerTestController extends Controller
             $prompt .= "Обязательно учти эту информацию при формировании рекомендаций!\n\n";
         }
 
-        $prompt .= "На основе РЕАЛЬНОЙ СТАТИСТИКИ выше предоставь детальные рекомендации в следующем формате:\n\n";
+        $prompt .= "На основе ОТВЕТОВ ПОЛЬЗОВАТЕЛЯ выше предоставь детальные рекомендации в следующем формате:\n\n";
         $prompt .= "АНАЛИЗ ЛИЧНОСТИ:\n";
-        $prompt .= "[Используй конкретные проценты и статистику из анализа выше для описания личности]\n\n";
+        $prompt .= "[Используй ответы на вопросы о личности, мотивации и стиле работы]\n\n";
         
         $prompt .= "ПОДХОДЯЩИЕ ПРОФЕССИИ:\n";
-        $prompt .= "[Используй рассчитанные соответствия профессиям выше, добавь детальное обоснование для каждой профессии]\n\n";
+        $prompt .= "[Предложи 5-7 профессий, которые идеально подходят под описанный профиль, интересы и ограничения]\n\n";
         
         $prompt .= "НАВЫКИ ДЛЯ РАЗВИТИЯ:\n";
-        $prompt .= "[Основывайся на низких показателях в категориях для определения навыков к развитию]\n\n";
+        $prompt .= "[Какие навыки стоит подтянуть исходя из ответов]\n\n";
         
         $prompt .= "РЕКОМЕНДАЦИИ ПО ОБУЧЕНИЮ:\n";
-        $prompt .= "[Конкретные курсы и программы для улучшения слабых категорий]\n\n";
+        $prompt .= "[Конкретные форматы и направления обучения]\n\n";
         
         $prompt .= "ОСОБЕННОСТИ ТРУДОУСТРОЙСТВА:\n";
-        $prompt .= "[Учти доступность профессий и особенности здоровья]\n\n";
+        $prompt .= "[Учти ответы про здоровье, доступность и условия работы]\n\n";
         
         $prompt .= "ПОДРОБНЫЙ ОТЧЕТ О ПРОЦЕССЕ АНАЛИЗА:\n";
-        $prompt .= "[Создай детальный отчет, используя КОНКРЕТНЫЕ ЦИФРЫ И ПРОЦЕНТЫ из статистики выше:\n";
-        $prompt .= "1. Анализ каждой категории с указанием точных процентов и их интерпретации\n";
-        $prompt .= "2. Объяснение, как конкретные проценты привели к выбору профессий\n";
-        $prompt .= "3. Детальное обоснование процента соответствия для каждой рекомендуемой профессии\n";
-        $prompt .= "4. Статистическое обоснование рекомендаций по развитию навыков\n";
-        $prompt .= "5. Влияние особенностей здоровья на итоговые рекомендации]\n\n";
+        $prompt .= "[Обоснуй свои выводы, ссылаясь на конкретные ответы пользователя]\n\n";
 
         return $prompt;
-    }
-
-    /**
-     * Определение категории по порядку вопроса
-     */
-    private function getCategoryByOrder($order): string
-    {
-        if ($order >= 1 && $order <= 24) return 'Интересы';
-        if ($order >= 25 && $order <= 36) return 'Навыки';
-        if ($order >= 37 && $order <= 45) return 'Ценности';
-        if ($order >= 46 && $order <= 52) return 'Рабочая среда';
-        if ($order >= 53 && $order <= 58) return 'Личностные качества';
-        if ($order >= 59 && $order <= 64) return 'Обучаемость и мотивация';
-        if ($order >= 65 && $order <= 76) return 'Инвалидность и доступность';
-        return 'Другое';
-    }
-
-    /**
-     * Парсинг ответа ИИ
-     */
-    private function parseAIResponse($content): array
-    {
-        try {
-            // Проверяем, является ли контент уже структурированными данными (из нашего нового анализа)
-            if (is_array($content)) {
-                return $content;
-            }
-            
-            // Если это JSON строка, декодируем
-            if (is_string($content) && (strpos($content, '{') === 0 || strpos($content, '[') === 0)) {
-                $decoded = json_decode($content, true);
-                if ($decoded !== null) {
-                    return $decoded;
-                }
-            }
-            
-            // Разбиваем контент на секции (старый формат)
-            $sections = [
-                'personality_analysis' => $this->extractSection($content, 'АНАЛИЗ ЛИЧНОСТИ'),
-                'suitable_careers' => $this->extractSection($content, 'ПОДХОДЯЩИЕ ПРОФЕССИИ'),
-                'skills_to_develop' => $this->extractSection($content, 'НАВЫКИ ДЛЯ РАЗВИТИЯ'),
-                'learning_recommendations' => $this->extractSection($content, 'РЕКОМЕНДАЦИИ ПО ОБУЧЕНИЮ'),
-                'employment_features' => $this->extractSection($content, 'ОСОБЕННОСТИ ТРУДОУСТРОЙСТВА'),
-                'detailed_report' => $this->extractSection($content, 'ПОДРОБНЫЙ ОТЧЕТ О ПРОЦЕССЕ АНАЛИЗА'),
-            ];
-
-            // Извлекаем профессии с процентами соответствия
-            $careers = $this->extractCareersWithPercentages($sections['suitable_careers']);
-            
-            return [
-                'personality_traits' => $this->formatPersonalityTraits($sections['personality_analysis']),
-                'suitable_careers' => $careers,
-                'skills_to_develop' => $this->formatSkillsList($sections['skills_to_develop']),
-                'learning_recommendations' => $this->formatLearningRecommendations($sections['learning_recommendations']),
-                'accessibility_considerations' => $this->formatAccessibilityConsiderations($sections['employment_features']),
-                'summary' => $this->generateSummary($sections),
-                'detailed_analysis' => $content, // Сохраняем полный анализ
-                'detailed_report' => $sections['detailed_report'] // Подробный отчет о процессе анализа
-            ];
-        } catch (\Exception $e) {
-            Log::error('Ошибка парсинга ответа ИИ: ' . $e->getMessage());
-            return $this->getFallbackAnalysis();
-        }
-    }
-
-    /**
-     * Извлечение секции из текста
-     */
-    private function extractSection($content, $sectionName): string
-    {
-        $pattern = "/{$sectionName}:\s*(.*?)(?=\n[А-Я\s]+:|$)/s";
-        preg_match($pattern, $content, $matches);
-        return isset($matches[1]) ? trim($matches[1]) : '';
-    }
-
-    /**
-     * Извлечение профессий с процентами
-     */
-    private function extractCareersWithPercentages($careersText): array
-    {
-        $careers = [];
-        
-        // Если это уже массив (из нашего нового анализа), возвращаем как есть
-        if (is_array($careersText)) {
-            return $careersText;
-        }
-        
-        $lines = explode("\n", $careersText);
-        
-        foreach ($lines as $line) {
-            $line = trim($line);
-            if (empty($line) || strpos($line, '•') === false) continue;
-            
-            // Ищем паттерн: • Профессия (XX%) - описание
-            if (preg_match('/•\s*([^(]+)\s*\((\d+)%\)\s*-?\s*(.*)/', $line, $matches)) {
-                $careers[] = [
-                    'name' => trim($matches[1]),
-                    'title' => trim($matches[1]),
-                    'match_percentage' => (int)$matches[2],
-                    'description' => trim($matches[3]),
-                    'reasoning' => trim($matches[3]),
-                    'requirements' => [],
-                    'accessibility_notes' => ''
-                ];
-            } else {
-                // Если нет процента, добавляем как есть
-                $careerName = str_replace('•', '', $line);
-                $careers[] = [
-                    'name' => trim($careerName),
-                    'title' => trim($careerName),
-                    'match_percentage' => 0,
-                    'description' => '',
-                    'reasoning' => '',
-                    'requirements' => [],
-                    'accessibility_notes' => ''
-                ];
-            }
-        }
-        
-        return $careers;
-    }
-
-    /**
-     * Форматирование черт личности
-     */
-    private function formatPersonalityTraits($analysisText): array
-    {
-        $traits = [];
-        $sentences = preg_split('/[.!?]+/', $analysisText);
-        
-        foreach ($sentences as $sentence) {
-            $sentence = trim($sentence);
-            if (strlen($sentence) > 10) {
-                $traits[] = $sentence;
-            }
-        }
-        
-        return array_slice($traits, 0, 5); // Ограничиваем 5 основными чертами
-    }
-
-    /**
-     * Форматирование списка навыков
-     */
-    private function formatSkillsList($skillsText): array
-    {
-        $skills = [];
-        $lines = explode("\n", $skillsText);
-        
-        foreach ($lines as $line) {
-            $line = trim($line);
-            if (empty($line)) continue;
-            
-            $line = preg_replace('/^[•\-\*]\s*/', '', $line);
-            if (strlen($line) > 3) {
-                $skills[] = $line;
-            }
-        }
-        
-        return $skills;
-    }
-
-    /**
-     * Форматирование рекомендаций по обучению
-     */
-    private function formatLearningRecommendations($learningText): array
-    {
-        return $this->formatSkillsList($learningText); // Используем тот же формат
-    }
-
-    /**
-     * Форматирование особенностей доступности
-     */
-    private function formatAccessibilityConsiderations($accessibilityText): array
-    {
-        return $this->formatSkillsList($accessibilityText); // Используем тот же формат
-    }
-
-    /**
-     * Генерация краткого резюме
-     */
-    private function generateSummary($sections): string
-    {
-        $summary = "На основе анализа ваших ответов выявлены следующие ключевые особенности: ";
-        
-        if (!empty($sections['personality_analysis'])) {
-            $firstSentence = explode('.', $sections['personality_analysis'])[0];
-            $summary .= trim($firstSentence) . ". ";
-        }
-        
-        $summary .= "Рекомендуется рассмотреть профессии в области, соответствующей вашим интересам и способностям, ";
-        $summary .= "с учетом особенностей здоровья и необходимых условий трудовой деятельности.";
-        
-        return $summary;
-    }
-
-    /**
-     * Резервный анализ с реальными расчетами на основе ответов
-     */
-    private function getFallbackAnalysis($answers = null, $disabilityInfo = null): array
-    {
-        // Если есть ответы, используем реальную статистику
-        if ($answers) {
-            $statistics = $this->analyzeAnswersStatistics($answers, $disabilityInfo);
-            
-            return [
-                'analysis' => [
-                    'personality_traits' => $this->generatePersonalityFromStats($statistics),
-                    'suitable_careers' => $statistics['career_matches'],
-                    'skills_to_develop' => $this->generateSkillsFromStats($statistics),
-                    'learning_recommendations' => $this->generateLearningFromStats($statistics),
-                    'accessibility_considerations' => $this->generateAccessibilityFromStats($statistics, $disabilityInfo),
-                    'summary' => $this->generateSummaryFromStats($statistics),
-                    'detailed_report' => $this->generateDetailedReportFromStats($statistics, $disabilityInfo)
-                ],
-                'recommendations' => [
-                    'careers' => $this->generateCareerRecommendationsFromStats($statistics),
-                    'advice' => 'Рекомендации основаны на детальном анализе ваших ответов и статистических расчетах.'
-                ]
-            ];
-        }
-
-        // Если нет ответов, используем базовый анализ
-        return [
-            'analysis' => [
-                'personality_traits' => [
-                    'Готовность к обучению',
-                    'Стремление к самостоятельности',
-                    'Внимательность к деталям',
-                    'Желание помогать другим',
-                    'Творческий подход к решению задач'
-                ],
-                'suitable_careers' => [
-                    [
-                        'title' => 'Специалист по работе с данными',
-                        'match_percentage' => 70,
-                        'description' => 'Обработка и анализ информации, работа с компьютером',
-                        'requirements' => ['Внимательность', 'Компьютерная грамотность'],
-                        'accessibility_notes' => 'Подходит для удаленной работы'
-                    ],
-                    [
-                        'title' => 'Консультант по социальным вопросам',
-                        'match_percentage' => 65,
-                        'description' => 'Помощь людям в решении социальных вопросов',
-                        'requirements' => ['Эмпатия', 'Коммуникативные навыки'],
-                        'accessibility_notes' => 'Возможна работа в адаптированной среде'
-                    ],
-                    [
-                        'title' => 'Творческий работник',
-                        'match_percentage' => 60,
-                        'description' => 'Создание творческого контента, рукоделие, искусство',
-                        'requirements' => ['Творческие способности', 'Терпение'],
-                        'accessibility_notes' => 'Гибкий график, индивидуальный подход'
-                    ]
-                ],
-                'skills_to_develop' => [
-                    'Компьютерная грамотность',
-                    'Коммуникативные навыки',
-                    'Навыки самоорганизации',
-                    'Профессиональные навыки в выбранной области',
-                    'Навыки работы в команде'
-                ],
-                'learning_recommendations' => [
-                    'Курсы компьютерной грамотности',
-                    'Программы профессиональной реабилитации',
-                    'Онлайн-обучение в удобном темпе',
-                    'Практические мастер-классы',
-                    'Индивидуальные консультации с наставником'
-                ],
-                'accessibility_considerations' => [
-                    'Поиск работодателей, поддерживающих инклюзивность',
-                    'Использование ассистивных технологий при необходимости',
-                    'Обращение в центры занятости для людей с инвалидностью',
-                    'Изучение трудовых прав и льгот',
-                    'Рассмотрение возможности удаленной работы'
-                ],
-                'summary' => 'Для получения более точных рекомендаций рекомендуется консультация со специалистом по профориентации.',
-                'detailed_report' => 'Данный анализ является базовым. Для получения персонализированного отчета необходимо пройти полный тест.'
-            ],
-            'recommendations' => [
-                'careers' => 'Рекомендуется рассмотреть профессии в сфере услуг, творчества или работы с информацией.',
-                'advice' => 'Обратитесь в центр занятости или к специалисту по профориентации для получения персональных рекомендаций.'
-            ]
-        ];
-    }
-
-    /**
-     * Генерация личностных качеств на основе статистики
-     */
-    private function generatePersonalityFromStats($statistics): array
-    {
-        $traits = [];
-        
-        foreach ($statistics['category_stats'] as $category => $stats) {
-            if ($stats['percentage'] >= 60) {
-                switch ($category) {
-                    case 'Интересы':
-                        $traits[] = "Четко выраженные профессиональные интересы ({$stats['percentage']}%)";
-                        break;
-                    case 'Навыки':
-                        $traits[] = "Развитые профессиональные навыки ({$stats['percentage']}%)";
-                        break;
-                    case 'Ценности':
-                        $traits[] = "Сформированная система трудовых ценностей ({$stats['percentage']}%)";
-                        break;
-                    case 'Личностные качества':
-                        $traits[] = "Выраженные лидерские качества ({$stats['percentage']}%)";
-                        break;
-                    case 'Обучаемость и мотивация':
-                        $traits[] = "Высокая мотивация к обучению ({$stats['percentage']}%)";
-                        break;
-                }
-            }
-        }
-        
-        return $traits ?: ['Базовые профессиональные качества'];
-    }
-
-    /**
-     * Генерация навыков для развития на основе статистики
-     */
-    private function generateSkillsFromStats($statistics): array
-    {
-        $skills = [];
-        
-        foreach ($statistics['category_stats'] as $category => $stats) {
-            if ($stats['percentage'] < 50) {
-                switch ($category) {
-                    case 'Навыки':
-                        $skills[] = "Профессиональные навыки (текущий уровень: {$stats['percentage']}%)";
-                        break;
-                    case 'Личностные качества':
-                        $skills[] = "Лидерские и коммуникативные навыки (текущий уровень: {$stats['percentage']}%)";
-                        break;
-                    case 'Обучаемость и мотивация':
-                        $skills[] = "Навыки самообучения и мотивации (текущий уровень: {$stats['percentage']}%)";
-                        break;
-                }
-            }
-        }
-        
-        return $skills ?: ['Общие профессиональные навыки'];
-    }
-
-    /**
-     * Генерация рекомендаций по обучению на основе статистики
-     */
-    private function generateLearningFromStats($statistics): array
-    {
-        $recommendations = [];
-        
-        foreach ($statistics['category_stats'] as $category => $stats) {
-            if ($stats['percentage'] < 60) {
-                switch ($category) {
-                    case 'Навыки':
-                        $recommendations[] = "Курсы профессиональных навыков для повышения с {$stats['percentage']}%";
-                        break;
-                    case 'Личностные качества':
-                        $recommendations[] = "Тренинги личностного роста для развития с {$stats['percentage']}%";
-                        break;
-                    case 'Обучаемость и мотивация':
-                        $recommendations[] = "Курсы по самоорганизации для улучшения с {$stats['percentage']}%";
-                        break;
-                }
-            }
-        }
-        
-        return $recommendations ?: ['Общие курсы профессионального развития'];
-    }
-
-    /**
-     * Генерация рекомендаций по доступности на основе статистики
-     */
-    private function generateAccessibilityFromStats($statistics, $disabilityInfo): array
-    {
-        $considerations = [
-            'Поиск работодателей, поддерживающих инклюзивность',
-            'Использование ассистивных технологий при необходимости'
-        ];
-        
-        if ($disabilityInfo) {
-            $considerations[] = 'Адаптация рабочего места с учетом особенностей здоровья';
-            $considerations[] = 'Консультация с реабилитологом по трудоустройству';
-        }
-        
-        return $considerations;
-    }
-
-    /**
-     * Генерация общего резюме на основе статистики
-     */
-    private function generateSummaryFromStats($statistics): string
-    {
-        $overallPercentage = $statistics['overall_percentage'];
-        
-        if ($overallPercentage >= 70) {
-            return "Высокий уровень готовности к профессиональной деятельности ({$overallPercentage}%). Рекомендуется активный поиск работы в выбранных направлениях.";
-        } elseif ($overallPercentage >= 50) {
-            return "Средний уровень готовности ({$overallPercentage}%). Рекомендуется дополнительное обучение в слабых областях.";
-        } else {
-            return "Требуется значительное развитие профессиональных навыков ({$overallPercentage}%). Рекомендуется комплексная подготовка.";
-        }
-    }
-
-    /**
-     * Генерация детального отчета на основе статистики
-     */
-    private function generateDetailedReportFromStats($statistics, $disabilityInfo): string
-    {
-        $report = "ДЕТАЛЬНЫЙ ОТЧЕТ НА ОСНОВЕ РЕАЛЬНОЙ СТАТИСТИКИ:\n\n";
-        
-        $report .= "1. ОБЩИЙ АНАЛИЗ:\n";
-        $report .= "Общий результат: {$statistics['overall_score']} из {$statistics['total_questions']} вопросов ({$statistics['overall_percentage']}%)\n\n";
-        
-        $report .= "2. АНАЛИЗ ПО КАТЕГОРИЯМ:\n";
-        foreach ($statistics['category_stats'] as $category => $stats) {
-            $report .= "• {$category}: {$stats['percentage']}% (уровень: {$stats['level']})\n";
-            $report .= "  Детали: {$stats['total_score']}/{$stats['max_score']} баллов, средний балл: {$stats['average_score']}\n";
-        }
-        
-        $report .= "\n3. ПРОФЕССИОНАЛЬНЫЕ СООТВЕТСТВИЯ:\n";
-        foreach ($statistics['career_matches'] as $career) {
-            $report .= "• {$career['title']}: {$career['match_percentage']}% соответствия\n";
-            $report .= "  {$career['reasoning']}\n";
-        }
-        
-        if ($disabilityInfo) {
-            $report .= "\n4. УЧЕТ ОСОБЕННОСТЕЙ ЗДОРОВЬЯ:\n";
-            $report .= "При анализе учтены особенности здоровья и адаптивные возможности профессий.\n";
-        }
-        
-        return $report;
-    }
-
-    /**
-     * Генерация карьерных рекомендаций на основе статистики
-     */
-    private function generateCareerRecommendationsFromStats($statistics): string
-    {
-        $topCareer = $statistics['career_matches'][0] ?? null;
-        
-        if ($topCareer) {
-            return "Наиболее подходящая профессия: {$topCareer['title']} ({$topCareer['match_percentage']}% соответствия). " .
-                   "Рекомендуется изучить требования и начать подготовку в данном направлении.";
-        }
-        
-        return "Рекомендуется дополнительная консультация для определения оптимального карьерного пути.";
     }
 
     /**
@@ -689,79 +551,115 @@ class CareerTestController extends Controller
      */
     private function analyzeAnswersStatistics($answers, $disabilityInfo): array
     {
-        $categories = [
-            'Интересы' => [],
-            'Навыки' => [],
-            'Ценности' => [],
-            'Рабочая среда' => [],
-            'Личностные качества' => [],
-            'Обучаемость и мотивация' => [],
-            'Инвалидность и доступность' => []
-        ];
-
-        $categoryStats = [];
+        $categories = [];
+        $transcript = [];
         $totalAnswers = count($answers);
         $overallScore = 0;
+        $maxOverallScore = 0;
 
         // Группируем ответы по категориям и считаем статистику
         foreach ($answers as $questionId => $answer) {
             $question = CareerQuestion::find($questionId);
             if ($question) {
-                $category = $this->getCategoryByOrder($question->order);
-                $categories[$category][] = [
+                $category = $question->category;
+                
+                // Собираем транскрипт
+                $transcript[] = [
                     'question' => $question->question_text,
-                    'answer' => $answer,
-                    'score' => (int)$answer
+                    'category' => $category,
+                    'answer' => $this->formatAnswer($answer, $question)
                 ];
-                $overallScore += (int)$answer;
+
+                if (!isset($categories[$category])) {
+                    $categories[$category] = [];
+                }
+
+                // Если вопрос шкалированный (числовой ответ 0-4), добавляем в статистику
+                if ($question->question_type === 'scale' && is_numeric($answer)) {
+                    $categories[$category][] = [
+                        'question' => $question->question_text,
+                        'answer' => $answer,
+                        'score' => (int)$answer
+                    ];
+                    $overallScore += (int)$answer;
+                    $maxOverallScore += 4;
+                }
             }
         }
 
+        $categoryStats = [];
+        
         // Анализируем каждую категорию
         foreach ($categories as $categoryName => $categoryQuestions) {
-            if (!empty($categoryQuestions)) {
+            $count = count($categoryQuestions);
+            if ($count > 0) {
                 $totalScore = array_sum(array_column($categoryQuestions, 'score'));
-                $maxScore = count($categoryQuestions) * 4;
+                $maxScore = $count * 4;
                 $percentage = $maxScore > 0 ? round(($totalScore / $maxScore) * 100) : 0;
                 
-                // Определяем уровень по процентам
-                $level = 'низкий';
-                if ($percentage >= 75) $level = 'очень высокий';
-                elseif ($percentage >= 60) $level = 'высокий';
-                elseif ($percentage >= 40) $level = 'средний';
-                elseif ($percentage >= 25) $level = 'ниже среднего';
-
-                // Анализируем конкретные ответы
-                $highScores = array_filter($categoryQuestions, fn($q) => $q['score'] >= 3);
-                $lowScores = array_filter($categoryQuestions, fn($q) => $q['score'] <= 1);
-
                 $categoryStats[$categoryName] = [
                     'total_score' => $totalScore,
                     'max_score' => $maxScore,
                     'percentage' => $percentage,
-                    'level' => $level,
-                    'questions_count' => count($categoryQuestions),
-                    'high_scores' => $highScores,
-                    'low_scores' => $lowScores,
-                    'average_score' => round($totalScore / count($categoryQuestions), 1)
+                    'level' => $this->getLevelByPercentage($percentage),
+                    'average_score' => round($totalScore / $count, 1),
+                    'high_scores' => array_filter($categoryQuestions, fn($q) => $q['score'] >= 3),
+                    'low_scores' => array_filter($categoryQuestions, fn($q) => $q['score'] <= 1)
+                ];
+            } else {
+                 $categoryStats[$categoryName] = [
+                    'total_score' => 0,
+                    'max_score' => 0,
+                    'percentage' => 0,
+                    'level' => 'нет данных',
+                    'average_score' => 0,
+                    'high_scores' => [],
+                    'low_scores' => []
                 ];
             }
         }
 
-        // Определяем профессиональные склонности на основе статистики
-        $professionalInclinations = $this->determineProfessionalInclinations($categoryStats);
-        
-        // Рассчитываем соответствие профессиям
+        // Базовые склонности (можно расширить логику)
+        $professionalInclinations = [];
+
+        // Рассчитываем соответствие профессиям (упрощенно, так как теперь больше зависит от ИИ)
         $careerMatches = $this->calculateCareerMatches($categoryStats, $disabilityInfo);
 
         return [
             'category_stats' => $categoryStats,
-            'overall_percentage' => round(($overallScore / ($totalAnswers * 4)) * 100),
+            'transcript' => $transcript,
+            'overall_percentage' => $maxOverallScore > 0 ? round(($overallScore / $maxOverallScore) * 100) : 0,
             'professional_inclinations' => $professionalInclinations,
             'career_matches' => $careerMatches,
             'total_questions' => $totalAnswers,
             'overall_score' => $overallScore
         ];
+    }
+
+    private function formatAnswer($answer, $question)
+    {
+        if (is_array($answer)) {
+            return implode(', ', $answer);
+        }
+
+        if ($question->question_type === 'scale') {
+            $map = ['0' => '0 — совсем не про меня', '1' => '1 — скорее нет', '2' => '2 — затрудняюсь', '3' => '3 — скорее да', '4' => '4 — полностью про меня'];
+            return $map[$answer] ?? $answer;
+        }
+
+        if ($question->question_type === 'multiple_choice' && is_numeric($answer) && !empty($question->options)) {
+             return $question->options[$answer] ?? $answer;
+        }
+        return $answer;
+    }
+
+    private function getLevelByPercentage($percentage)
+    {
+        if ($percentage >= 75) return 'очень высокий';
+        if ($percentage >= 60) return 'высокий';
+        if ($percentage >= 40) return 'средний';
+        if ($percentage >= 25) return 'ниже среднего';
+        return 'низкий';
     }
 
     /**
@@ -784,17 +682,8 @@ class CareerTestController extends Controller
                     case 'Навыки':
                         $inclinations[] = "Высокий уровень профессиональных навыков ({$stats['percentage']}%)";
                         break;
-                    case 'Ценности':
-                        $inclinations[] = "Четко сформированные трудовые ценности ({$stats['percentage']}%)";
-                        break;
                     case 'Рабочая среда':
                         $inclinations[] = "Определенные предпочтения к рабочей среде ({$stats['percentage']}%)";
-                        break;
-                    case 'Личностные качества':
-                        $inclinations[] = "Выраженные лидерские и личностные качества ({$stats['percentage']}%)";
-                        break;
-                    case 'Обучаемость и мотивация':
-                        $inclinations[] = "Высокая мотивация к обучению и развитию ({$stats['percentage']}%)";
                         break;
                     case 'Инвалидность и доступность':
                         $inclinations[] = "Четкое понимание потребностей в адаптации рабочего места ({$stats['percentage']}%)";
@@ -815,7 +704,7 @@ class CareerTestController extends Controller
             [
                 'title' => 'Специалист по работе с данными',
                 'base_match' => 0,
-                'requirements' => ['Способности' => 60, 'Мотивация' => 50],
+                'requirements' => ['Навыки' => 60],
                 'description' => 'Обработка и анализ информации, работа с компьютером',
                 'accessibility_friendly' => true,
                 'remote_work_possible' => true,
@@ -825,7 +714,7 @@ class CareerTestController extends Controller
             [
                 'title' => 'Консультант по социальным вопросам',
                 'base_match' => 0,
-                'requirements' => ['Интересы' => 60, 'Стиль работы' => 55, 'Ценности' => 60],
+                'requirements' => ['Интересы' => 60],
                 'description' => 'Помощь людям в решении социальных вопросов',
                 'accessibility_friendly' => true,
                 'remote_work_possible' => false,
@@ -835,7 +724,7 @@ class CareerTestController extends Controller
             [
                 'title' => 'Творческий работник (дизайн, рукоделие)',
                 'base_match' => 0,
-                'requirements' => ['Интересы' => 50, 'Способности' => 45],
+                'requirements' => ['Интересы' => 50, 'Навыки' => 45],
                 'description' => 'Создание творческого контента, рукоделие, искусство',
                 'accessibility_friendly' => true,
                 'remote_work_possible' => true,
@@ -845,7 +734,7 @@ class CareerTestController extends Controller
             [
                 'title' => 'Администратор/Делопроизводитель',
                 'base_match' => 0,
-                'requirements' => ['Способности' => 55, 'Рабочая среда' => 60],
+                'requirements' => ['Навыки' => 55, 'Рабочая среда' => 60],
                 'description' => 'Ведение документооборота, административная работа',
                 'accessibility_friendly' => true,
                 'remote_work_possible' => true,
@@ -855,7 +744,7 @@ class CareerTestController extends Controller
             [
                 'title' => 'Преподаватель/Тренер',
                 'base_match' => 0,
-                'requirements' => ['Интересы' => 65, 'Стиль работы' => 60, 'Мотивация' => 70],
+                'requirements' => ['Интересы' => 65, 'Навыки' => 50],
                 'description' => 'Обучение и развитие других людей',
                 'accessibility_friendly' => false,
                 'remote_work_possible' => false,
@@ -865,7 +754,7 @@ class CareerTestController extends Controller
             [
                 'title' => 'IT-поддержка/Техническая поддержка',
                 'base_match' => 0,
-                'requirements' => ['Способности' => 65, 'Рабочая среда' => 50],
+                'requirements' => ['Навыки' => 65, 'Рабочая среда' => 50],
                 'description' => 'Решение технических проблем, поддержка пользователей',
                 'accessibility_friendly' => true,
                 'remote_work_possible' => true,
@@ -875,7 +764,7 @@ class CareerTestController extends Controller
             [
                 'title' => 'Переводчик/Редактор',
                 'base_match' => 0,
-                'requirements' => ['Способности' => 70, 'Интересы' => 55],
+                'requirements' => ['Навыки' => 70, 'Интересы' => 55],
                 'description' => 'Работа с текстами, переводы, редактирование',
                 'accessibility_friendly' => true,
                 'remote_work_possible' => true,
@@ -927,7 +816,7 @@ class CareerTestController extends Controller
     /**
      * Анализ особенностей здоровья для карьерных рекомендаций
      */
-    private function analyzeHealthForCareers($disabilityInfo): array
+    private function analyzeHealthForCareers($disabilityInfo, $categoryStats = null): array
     {
         $analysis = [
             'needs_remote_work' => false,
@@ -939,6 +828,73 @@ class CareerTestController extends Controller
             'mobility_considerations' => false,
             'cognitive_considerations' => false
         ];
+        
+        // Анализ низких оценок в категории "Инвалидность и доступность"
+        if ($categoryStats && isset($categoryStats['Инвалидность и доступность'])) {
+            $disabilityStats = $categoryStats['Инвалидность и доступность'];
+            
+            // Если есть низкие оценки (0-1), значит у пользователя есть трудности в этих областях
+            foreach ($disabilityStats['low_scores'] as $question) {
+                $text = mb_strtolower($question['question']);
+                
+                // "Мне несложно работать стоя..." (низкая оценка -> сложно)
+                if (mb_strpos($text, 'стоя') !== false || mb_strpos($text, 'расстояния') !== false) {
+                    $analysis['mobility_considerations'] = true;
+                    $analysis['needs_low_physical'] = true;
+                }
+                
+                // "поднимать" -> физическая нагрузка
+                if (mb_strpos($text, 'поднимать') !== false) {
+                    $analysis['needs_low_physical'] = true;
+                }
+                
+                // "слух" -> слух
+                if (mb_strpos($text, 'слух') !== false) {
+                    $analysis['hearing_considerations'] = true;
+                }
+                
+                // "зрение" -> зрение
+                if (mb_strpos($text, 'зрение') !== false) {
+                    $analysis['vision_considerations'] = true;
+                }
+                
+                // "спокойный" -> стресс/когнитивные
+                if (mb_strpos($text, 'спокойный') !== false || mb_strpos($text, 'тихая') !== false) {
+                    $analysis['needs_flexible_schedule'] = true; // Или спокойная обстановка
+                }
+
+                // "дом" -> удаленка (низкая оценка -> "мне НЕ легче дома"? Нет, вопрос: "Мне легче работать из дома")
+                // Если "легче из дома" = 4 (Высокая), значит нужна удаленка.
+                // Если "легче из дома" = 0 (Низкая), значит НЕ обязательно.
+                // Значит здесь нужно смотреть ВЫСОКИЕ оценки для позитивных утверждений о потребностях.
+                // Вопросы в тесте сформулированы по-разному.
+                // 1-5: "Мне несложно..." (способности). Низкий балл = проблема.
+                // 6: "Мне нужен спокойный темп..." (потребность). Высокий балл = потребность.
+                // 7: "Я лучше работаю..." (потребность). Высокий балл = потребность.
+                // 8: "необходимо... перерывы" (потребность). Высокий балл = потребность.
+                // 9: "поездки... не вызывают трудностей" (способность). Низкий балл = проблема.
+                // 10: "легче работать из дома" (потребность). Высокий балл = потребность.
+                // 11: "лучше... по сокращенному" (потребность). Высокий балл = потребность.
+                // 12: "тихая... помогает" (потребность). Высокий балл = потребность.
+            }
+            
+            // Анализ высоких оценок (потребности)
+            foreach ($disabilityStats['high_scores'] as $question) {
+                $text = mb_strtolower($question['question']);
+                
+                if (mb_strpos($text, 'дома') !== false) {
+                    $analysis['needs_remote_work'] = true;
+                }
+                
+                if (mb_strpos($text, 'спокойный') !== false || mb_strpos($text, 'тихая') !== false) {
+                    $analysis['needs_flexible_schedule'] = true; // Предпочтение спокойной среды
+                }
+                
+                if (mb_strpos($text, 'сокращённому') !== false || mb_strpos($text, 'перерывы') !== false) {
+                    $analysis['needs_flexible_schedule'] = true;
+                }
+            }
+        }
         
         if (!$disabilityInfo) {
             return $analysis;
