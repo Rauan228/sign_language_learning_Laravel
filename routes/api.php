@@ -210,5 +210,27 @@ Route::post('/courses/{id}/enroll', [CourseController::class, 'enroll']);
             Route::get('/job-applications', [\App\Http\Controllers\Api\JobApplicationController::class, 'index']); // ?job_id=X
             Route::patch('/applications/{id}/status', [\App\Http\Controllers\Api\JobApplicationController::class, 'updateStatus']);
         });
+
+        // Visual Mind Connect Routes
+        Route::prefix('connect')->group(function () {
+            // Community
+            Route::get('/categories', [\App\Http\Controllers\Api\ConnectPostController::class, 'categories']);
+            Route::get('/posts', [\App\Http\Controllers\Api\ConnectPostController::class, 'index']);
+            Route::post('/posts', [\App\Http\Controllers\Api\ConnectPostController::class, 'store']);
+            Route::get('/posts/{id}', [\App\Http\Controllers\Api\ConnectPostController::class, 'show']);
+            Route::post('/posts/{id}/like', [\App\Http\Controllers\Api\ConnectPostController::class, 'like']);
+            
+            // Comments routes are now merged into posts, but keeping aliases for compatibility if needed
+            // or just removing them. Let's remove them to force frontend update.
+
+            // Professionals
+            Route::get('/professionals', [\App\Http\Controllers\Api\ConnectProfessionalController::class, 'index']);
+            Route::post('/professionals', [\App\Http\Controllers\Api\ConnectProfessionalController::class, 'store']); // Register as pro
+            Route::get('/professionals/{id}', [\App\Http\Controllers\Api\ConnectProfessionalController::class, 'show']);
+            
+            // Bookings
+            Route::get('/bookings', [\App\Http\Controllers\Api\ConnectBookingController::class, 'index']);
+            Route::post('/bookings', [\App\Http\Controllers\Api\ConnectBookingController::class, 'store']);
+        });
     });
 });

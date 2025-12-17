@@ -83,4 +83,30 @@ class User extends Authenticatable
         return $this->belongsToMany(Course::class, 'purchases')
                     ->wherePivot('status', 'completed');
     }
+
+    // Connect / Forum Relationships
+    public function posts()
+    {
+        return $this->hasMany(ConnectPost::class);
+    }
+
+    public function connectComments()
+    {
+        return $this->hasMany(ConnectComment::class);
+    }
+
+    public function connectProfile()
+    {
+        return $this->hasOne(ConnectProfessional::class);
+    }
+
+    public function connectBookings()
+    {
+        return $this->hasMany(ConnectBooking::class);
+    }
+
+    public function connectSubscription()
+    {
+        return $this->hasOne(ConnectSubscription::class)->latest();
+    }
 }
