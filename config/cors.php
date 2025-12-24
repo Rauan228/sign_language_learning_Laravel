@@ -16,7 +16,7 @@ return [
     */
 
     // Apply CORS to all API routes (v1 is under /api/*) and storage files
-    'paths' => ['api/*', 'auth/*', 'sanctum/csrf-cookie', 'storage/*'],
+    'paths' => ['api/*', 'auth/*', 'sanctum/csrf-cookie', 'storage/*', 'broadcasting/*'],
 
     'allowed_methods' => ['*'],
 

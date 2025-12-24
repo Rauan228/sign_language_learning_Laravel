@@ -64,6 +64,16 @@ class ConnectPost extends Model
         return $this->belongsTo(ConnectPost::class, 'root_thread_id');
     }
 
+    public function originalPost()
+    {
+        return $this->belongsTo(ConnectPost::class, 'original_post_id');
+    }
+
+    public function reposts()
+    {
+        return $this->hasMany(ConnectPost::class, 'original_post_id');
+    }
+
     public function likes()
     {
         return $this->morphMany(ConnectLike::class, 'likeable');

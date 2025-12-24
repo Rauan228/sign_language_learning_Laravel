@@ -32,6 +32,13 @@ class ConnectPostController extends Controller
         if ($request->has('type')) {
             $query->where('type', $request->type);
         }
+
+        // Filter by Saved
+        if ($request->has('saved') && $request->boolean('saved')) {
+             $query->join('connect_saved_posts', 'connect_posts.id', '=', 'connect_saved_posts.post_id')
+                   ->where('connect_saved_posts.user_id', auth()->id())
+                   ->select('connect_posts.*'); // Ensure we select only post columns
+        }
         
         // Search
         if ($request->has('q')) {
@@ -117,17 +124,49 @@ class ConnectPostController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'content' => 'required|string',
+            'content' => 'required_without:original_post_id|string',
             'parent_id' => 'nullable|exists:connect_posts,id',
+            'original_post_id' => 'nullable|exists:connect_posts,id',
             // Root post required fields
-            'title' => 'required_without:parent_id|string|max:255|nullable',
-            'category_id' => 'required_without:parent_id|exists:connect_categories,id|nullable',
-            'type' => 'in:question,experience,discussion,support',
+            'title' => 'required_without_all:parent_id,original_post_id|string|max:255|nullable',
+            'category_id' => 'required_without_all:parent_id,original_post_id|exists:connect_categories,id|nullable',
+            'type' => 'in:question,experience,discussion,support,repost',
             'is_anonymous' => 'boolean',
             'tags' => 'array',
         ]);
 
         return DB::transaction(function () use ($request) {
+            // Handle Repost
+            if ($request->original_post_id) {
+                $originalPost = ConnectPost::findOrFail($request->original_post_id);
+                
+                // If reposting a repost, point to the real original
+                if ($originalPost->original_post_id) {
+                    $originalPost = ConnectPost::findOrFail($originalPost->original_post_id);
+                }
+
+                $post = ConnectPost::create([
+                    'user_id' => auth()->id(),
+                    'category_id' => $originalPost->category_id,
+                    'title' => 'Repost: ' . $originalPost->title, // Optional title for repost
+                    'content' => $request->input('content', ''), // Optional commentary
+                    'type' => 'repost',
+                    'original_post_id' => $originalPost->id,
+                    'root_thread_id' => null, // Repost starts its own thread? Or links to original? 
+                                              // Usually a repost is a new root item in your feed.
+                    'path' => null,
+                    'depth' => 0,
+                    'is_anonymous' => $request->boolean('is_anonymous'),
+                    'tags' => $originalPost->tags,
+                ]);
+
+                $post->root_thread_id = $post->id;
+                $post->path = (string) $post->id;
+                $post->save();
+
+                return response()->json($this->processPostForResponse($post), 201);
+            }
+
             $parent = null;
             if ($request->parent_id) {
                 $parent = ConnectPost::find($request->parent_id);
@@ -189,6 +228,34 @@ class ConnectPostController extends Controller
         }
     }
 
+    // Save/Unsave post
+    public function save($id)
+    {
+        $post = ConnectPost::findOrFail($id);
+        $user = auth()->user();
+        
+        $exists = DB::table('connect_saved_posts')
+            ->where('user_id', $user->id)
+            ->where('post_id', $post->id)
+            ->exists();
+        
+        if ($exists) {
+            DB::table('connect_saved_posts')
+                ->where('user_id', $user->id)
+                ->where('post_id', $post->id)
+                ->delete();
+            return response()->json(['saved' => false]);
+        } else {
+            DB::table('connect_saved_posts')->insert([
+                'user_id' => $user->id,
+                'post_id' => $post->id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            return response()->json(['saved' => true]);
+        }
+    }
+
     // Helper to process post display logic
     private function processPostForResponse($post)
     {
@@ -207,6 +274,20 @@ class ConnectPostController extends Controller
 
         // Like status
         $post->is_liked = auth()->check() ? $post->likes()->where('user_id', auth()->id())->exists() : false;
+        
+        // Saved status
+        $post->is_saved = auth()->check() ? DB::table('connect_saved_posts')
+            ->where('user_id', auth()->id())
+            ->where('post_id', $post->id)
+            ->exists() : false;
+
+        // Process Original Post if it exists
+        if ($post->originalPost) {
+            $post->originalPost->author_name = $post->originalPost->is_anonymous ? 'Аноним' : ($post->originalPost->user->name ?? 'Unknown');
+            if ($post->originalPost->is_anonymous) {
+                $post->originalPost->user = null;
+            }
+        }
 
         return $post;
     }

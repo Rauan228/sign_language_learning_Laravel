@@ -73,11 +73,6 @@ class User extends Authenticatable
         return $this->hasMany(Progress::class);
     }
 
-    public function certificates()
-    {
-        return $this->hasMany(Certificate::class);
-    }
-
     public function enrolledCourses()
     {
         return $this->belongsToMany(Course::class, 'purchases')
@@ -108,5 +103,30 @@ class User extends Authenticatable
     public function connectSubscription()
     {
         return $this->hasOne(ConnectSubscription::class)->latest();
+    }
+
+    // Social Features
+    public function followers()
+    {
+        return $this->belongsToMany(User::class, 'connect_follows', 'following_id', 'follower_id')
+                    ->withPivot('status')
+                    ->withTimestamps();
+    }
+
+    public function following()
+    {
+        return $this->belongsToMany(User::class, 'connect_follows', 'follower_id', 'following_id')
+                    ->withPivot('status')
+                    ->withTimestamps();
+    }
+
+    public function sentMessages()
+    {
+        return $this->hasMany(ConnectMessage::class, 'sender_id');
+    }
+
+    public function receivedMessages()
+    {
+        return $this->hasMany(ConnectMessage::class, 'receiver_id');
     }
 }

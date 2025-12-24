@@ -31,6 +31,9 @@ Route::prefix('v1')->group(function () {
         Route::post('/login', [AuthController::class, 'login']);
     });
     
+    // Broadcast routes
+    Broadcast::routes(['middleware' => ['auth:sanctum']]);
+    
     // Public course routes (for browsing)
     Route::get('/courses', [CourseController::class, 'index']);
     Route::get('/courses/enrolled', [CourseController::class, 'enrolled'])->middleware('auth:sanctum');
@@ -101,6 +104,7 @@ Route::prefix('v1')->group(function () {
         Route::prefix('auth')->group(function () {
             Route::post('/logout', [AuthController::class, 'logout']);
             Route::get('/user', [AuthController::class, 'user']);
+            Route::post('/user/avatar', [AuthController::class, 'uploadAvatar']);
         });
         
         Route::get('/courses/enrolled-test', function(Request $request) {
@@ -219,6 +223,7 @@ Route::post('/courses/{id}/enroll', [CourseController::class, 'enroll']);
             Route::post('/posts', [\App\Http\Controllers\Api\ConnectPostController::class, 'store']);
             Route::get('/posts/{id}', [\App\Http\Controllers\Api\ConnectPostController::class, 'show']);
             Route::post('/posts/{id}/like', [\App\Http\Controllers\Api\ConnectPostController::class, 'like']);
+            Route::post('/posts/{id}/save', [\App\Http\Controllers\Api\ConnectPostController::class, 'save']);
             
             // Comments routes are now merged into posts, but keeping aliases for compatibility if needed
             // or just removing them. Let's remove them to force frontend update.
@@ -231,6 +236,18 @@ Route::post('/courses/{id}/enroll', [CourseController::class, 'enroll']);
             // Bookings
             Route::get('/bookings', [\App\Http\Controllers\Api\ConnectBookingController::class, 'index']);
             Route::post('/bookings', [\App\Http\Controllers\Api\ConnectBookingController::class, 'store']);
+
+            // Social Features (Follows)
+            Route::get('/users/{id}', [\App\Http\Controllers\Api\ConnectUserController::class, 'show']); // Public Profile
+            Route::post('/users/{id}/follow', [\App\Http\Controllers\Api\ConnectFollowController::class, 'store']);
+            Route::delete('/users/{id}/follow', [\App\Http\Controllers\Api\ConnectFollowController::class, 'destroy']);
+            Route::get('/users/{id}/followers', [\App\Http\Controllers\Api\ConnectFollowController::class, 'followers']);
+            Route::get('/users/{id}/following', [\App\Http\Controllers\Api\ConnectFollowController::class, 'following']);
+
+            // Messages
+            Route::get('/messages', [\App\Http\Controllers\Api\ConnectMessageController::class, 'index']); // List conversations
+            Route::get('/messages/{id}', [\App\Http\Controllers\Api\ConnectMessageController::class, 'show']); // Chat with user X
+            Route::post('/messages/{id}', [\App\Http\Controllers\Api\ConnectMessageController::class, 'store']); // Send to user X
         });
     });
 });

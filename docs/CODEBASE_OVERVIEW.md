@@ -7,7 +7,7 @@
 - `app/`
   - `Http/Controllers/Api/` — контроллеры API (`AuthController`, `CourseController`, `ModuleController`, `LessonController`, `ProgressController`, `AdminController`)
   - `Http/Controllers/CareerTestController.php` — контроллер карьерных тестов
-  - `Models/` — модели домена (`Course`, `Module`, `Lesson`, `LessonMedia`, `LessonText`, `Progress`, `Purchase`, `Career*`, `Certificate`, `Test`, `User`)
+  - `Models/` — модели домена (`Course`, `Module`, `Lesson`, `LessonMedia`, `LessonText`, `Progress`, `Purchase`, `Career*`, `Test`, `User`)
 - `bootstrap/`, `config/`, `database/`, `routes/`, `resources/`, `storage/`, `public/` — стандартные каталоги Laravel
 
 ## Ключевые файлы и назначение

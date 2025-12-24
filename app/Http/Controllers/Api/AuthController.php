@@ -99,4 +99,43 @@ class AuthController extends Controller
             'data' => $request->user()
         ]);
     }
+
+    public function uploadAvatar(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'avatar' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $user = $request->user();
+
+        if ($request->hasFile('avatar')) {
+            $path = $request->file('avatar')->store('avatars', 'public');
+            // Create full URL
+            $url = url('storage/' . $path);
+            
+            $user->avatar = $url;
+            $user->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Avatar updated successfully',
+                'data' => [
+                    'avatar_url' => $url
+                ]
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'No file uploaded'
+        ], 400);
+    }
 }

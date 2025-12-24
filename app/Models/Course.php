@@ -56,11 +56,6 @@ class Course extends Model
         return $this->hasMany(Progress::class);
     }
 
-    public function certificates()
-    {
-        return $this->hasMany(Certificate::class);
-    }
-
     public function students()
     {
         return $this->belongsToMany(User::class, 'purchases')

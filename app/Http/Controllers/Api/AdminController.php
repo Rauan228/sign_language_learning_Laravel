@@ -78,6 +78,19 @@ class AdminController extends Controller
     {
         $course = Course::findOrFail($id);
 
+        // Decode tags if it's a string (sent from FormData)
+        if ($request->has('tags') && is_string($request->tags)) {
+            $decodedTags = json_decode($request->tags, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $request->merge(['tags' => $decodedTags]);
+            }
+        }
+
+        // Convert boolean strings to actual booleans
+        if ($request->has('is_free')) {
+            $request->merge(['is_free' => filter_var($request->is_free, FILTER_VALIDATE_BOOLEAN)]);
+        }
+
         $validator = Validator::make($request->all(), [
             'title' => 'sometimes|required|string|max:255',
             'description' => 'sometimes|required|string',
