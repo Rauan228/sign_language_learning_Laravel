@@ -15,6 +15,7 @@ class ConnectPost extends Model
         'category_id',
         'root_thread_id',
         'parent_id',
+        'original_post_id',
         'depth',
         'path',
         'title',

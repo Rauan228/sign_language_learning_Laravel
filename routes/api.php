@@ -248,6 +248,14 @@ Route::post('/courses/{id}/enroll', [CourseController::class, 'enroll']);
             Route::get('/messages', [\App\Http\Controllers\Api\ConnectMessageController::class, 'index']); // List conversations
             Route::get('/messages/{id}', [\App\Http\Controllers\Api\ConnectMessageController::class, 'show']); // Chat with user X
             Route::post('/messages/{id}', [\App\Http\Controllers\Api\ConnectMessageController::class, 'store']); // Send to user X
+            Route::post('/messages/{id}/read', [\App\Http\Controllers\Api\ConnectMessageController::class, 'markAsRead']); // Mark as read
+
+            // Notifications
+            Route::get('/notifications', [\App\Http\Controllers\Api\NotificationController::class, 'index']);
+            Route::get('/notifications/unread-count', [\App\Http\Controllers\Api\NotificationController::class, 'unreadCount']);
+            Route::post('/notifications/mark-all-read', [\App\Http\Controllers\Api\NotificationController::class, 'markAllAsRead']);
+            Route::post('/notifications/{id}/read', [\App\Http\Controllers\Api\NotificationController::class, 'markAsRead']);
+            Route::delete('/notifications/{id}', [\App\Http\Controllers\Api\NotificationController::class, 'destroy']);
         });
     });
 });

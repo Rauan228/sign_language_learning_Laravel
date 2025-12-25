@@ -130,4 +130,17 @@ class ConnectMessageController extends Controller
 
         return response()->json($message, 201);
     }
+
+    // Mark messages from a specific user as read
+    public function markAsRead($id)
+    {
+        $myId = auth()->id();
+        
+        $updated = ConnectMessage::where('sender_id', $id)
+            ->where('receiver_id', $myId)
+            ->where('is_read', false)
+            ->update(['is_read' => true]);
+
+        return response()->json(['success' => true, 'updated' => $updated]);
+    }
 }

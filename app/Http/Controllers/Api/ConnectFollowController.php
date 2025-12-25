@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Notifications\UserFollowed;
 use Illuminate\Http\Request;
 
 class ConnectFollowController extends Controller
@@ -21,6 +22,9 @@ class ConnectFollowController extends Controller
         // Check if already following
         if (!$currentUser->following()->where('following_id', $targetUser->id)->exists()) {
             $currentUser->following()->attach($targetUser->id, ['status' => 'accepted']);
+            
+            // Notify target user
+            $targetUser->notify(new UserFollowed($currentUser));
         }
 
         return response()->json([
