@@ -42,8 +42,8 @@ class PostCommented extends Notification
             'sender_name' => $this->commenter->name,
             'sender_avatar' => $this->commenter->avatar,
             'post_id' => $this->post->id,
-            'comment_content' => substr($this->commentContent, 0, 50),
-            'message' => 'commented on your post',
+            'comment_content' => mb_substr($this->commentContent, 0, 50),
+            'message' => 'прокомментировал(а) вашу запись',
         ];
     }
 }

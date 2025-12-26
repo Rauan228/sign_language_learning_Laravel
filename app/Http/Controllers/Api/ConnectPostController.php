@@ -7,8 +7,10 @@ use App\Models\ConnectPost;
 use App\Models\ConnectCategory;
 use App\Notifications\PostLiked;
 use App\Notifications\PostCommented;
+use App\Notifications\PostReposted;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 use App\Models\User;
 
 class ConnectPostController extends Controller
@@ -16,52 +18,49 @@ class ConnectPostController extends Controller
     // Get feed of root posts (threads)
     public function index(Request $request)
     {
-        $userId = auth()->id();
-        $followingIds = auth()->user()->following()->pluck('following_id')->toArray();
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        $userId = $user->id;
+        $followingIds = $user->following()->pluck('following_id')->toArray();
         $followingIds[] = $userId; // Include self
 
-        // Base Query: Root posts
-        $query = ConnectPost::whereNull('parent_id')
-            ->with(['category', 'user:id,name,avatar,role'])
+        // Base Query
+        $query = ConnectPost::with(['category', 'user:id,name,avatar,role'])
             ->withCount('likes');
 
+        $showRootOnly = true;
+
+        // Specific Lists Filters
+        if ($request->has('replies_of_user')) {
+            $query->where('user_id', $request->replies_of_user)
+                  ->whereNotNull('parent_id');
+            $showRootOnly = false;
+        } elseif ($request->has('reposts_of_user')) {
+             $query->join('connect_reposts', 'connect_posts.id', '=', 'connect_reposts.post_id')
+                   ->where('connect_reposts.user_id', $request->reposts_of_user)
+                   ->select('connect_posts.*');
+             $showRootOnly = false; 
+        } elseif ($request->has('liked') && $request->boolean('liked')) {
+             $query->join('connect_likes', 'connect_posts.id', '=', 'connect_likes.likeable_id')
+                   ->where('connect_likes.likeable_type', ConnectPost::class)
+                   ->where('connect_likes.user_id', Auth::id())
+                   ->select('connect_posts.*'); 
+             $showRootOnly = false;
+        } elseif ($request->has('saved') && $request->boolean('saved')) {
+             $query->join('connect_saved_posts', 'connect_posts.id', '=', 'connect_saved_posts.post_id')
+                   ->where('connect_saved_posts.user_id', Auth::id())
+                   ->select('connect_posts.*'); 
+             $showRootOnly = false;
+        }
+
+        if ($showRootOnly) {
+            $query->whereNull('parent_id');
+        }
+
         // Logic for Feed vs Specific Filters
-        // If filtering by specific category or type, we might not want repost logic mixed in unless we decide reposts also inherit category.
-        // For now, let's assume "Feed" (no specific filters) shows reposts.
-
-        if (!$request->has('category_id') && !$request->has('user_id') && !$request->has('type') && !$request->has('q') && !$request->has('saved')) {
-            // MAIN FEED LOGIC: Posts from following OR Reposts from following
-            
-            // We need to fetch posts that are:
-            // 1. Created by people I follow (or me)
-            // 2. Reposted by people I follow (or me)
-
-            // To do this efficiently with pagination and ordering by "activity time" (created_at of post OR created_at of repost),
-            // we might need a Union or a complex Join.
-            
-            // Simplified approach: 
-            // Select posts where user_id IN following 
-            // OR id IN (select post_id from reposts where user_id IN following)
-            
-            // But we need the "reposter" info attached to the specific row in the result set.
-            // A post might appear multiple times if multiple friends reposted it? 
-            // Standard feed usually deduplicates and shows "Friend A and Friend B reposted".
-            // For MVP, let's just pick the latest repost event if it exists.
-
-            $query->where(function($q) use ($followingIds) {
-                $q->whereIn('user_id', $followingIds)
-                  ->orWhereExists(function ($sub) use ($followingIds) {
-                      $sub->select(DB::raw(1))
-                          ->from('connect_reposts')
-                          ->whereColumn('connect_reposts.post_id', 'connect_posts.id')
-                          ->whereIn('connect_reposts.user_id', $followingIds);
-                  });
-            });
-            
-            // We need to attach the "reposter" info for the frontend.
-            // We can do this in the transformation step or via a subquery select.
-            // Let's do it in transformation for simplicity, although it's N+1 queries if not careful.
-            // Better: Eager load a "reposters" relationship filtered by my following.
+        if ($showRootOnly && !$request->has('category_id') && !$request->has('user_id') && !$request->has('type') && !$request->has('q')) {
+            // MAIN FEED LOGIC: Global Feed (Show all posts)
+            // ...
         }
 
         // Filter by User (My Posts)
@@ -79,13 +78,6 @@ class ConnectPostController extends Controller
             $query->where('type', $request->type);
         }
 
-        // Filter by Saved
-        if ($request->has('saved') && $request->boolean('saved')) {
-             $query->join('connect_saved_posts', 'connect_posts.id', '=', 'connect_saved_posts.post_id')
-                   ->where('connect_saved_posts.user_id', auth()->id())
-                   ->select('connect_posts.*'); 
-        }
-        
         // Search
         if ($request->has('q')) {
             $q = $request->q;
@@ -114,29 +106,49 @@ class ConnectPostController extends Controller
 
         // Process anonymity and attach reposter info
         $posts->getCollection()->transform(function ($post) use ($followingIds) {
-            // Check if this post is here because of a repost by someone I follow
-            // (Only if it's not my own post, or maybe even if it is)
-            
-            // Find the latest repost by someone I follow
-            $repost = DB::table('connect_reposts')
-                ->where('post_id', $post->id)
-                ->whereIn('user_id', $followingIds)
-                ->orderBy('created_at', 'desc')
-                ->first();
+            try {
+                // Check if this post is here because of a repost by someone I follow
+                // (Only if it's not my own post, or maybe even if it is)
+                
+                // Find all reposts by people I follow
+                $reposts = DB::table('connect_reposts')
+                    ->where('post_id', $post->id)
+                    ->whereIn('user_id', $followingIds)
+                    ->orderBy('created_at', 'desc')
+                    ->get();
 
-            if ($repost) {
-                $reposter = User::find($repost->user_id);
-                if ($reposter) {
-                    $post->reposter = [
-                        'id' => $reposter->id,
-                        'name' => $reposter->name,
-                        'avatar' => $reposter->avatar,
-                        'reposted_at' => $repost->created_at
-                    ];
+                $reposters = [];
+                
+                if ($reposts->isNotEmpty()) {
+                    // Get user details
+                    $reposterIds = $reposts->pluck('user_id');
+                    $reposterUsers = User::whereIn('id', $reposterIds)->get()->keyBy('id');
+                    
+                    foreach ($reposts as $repost) {
+                        if (isset($reposterUsers[$repost->user_id])) {
+                            $u = $reposterUsers[$repost->user_id];
+                            $reposters[] = [
+                                'id' => $u->id,
+                                'name' => $u->name,
+                                'avatar' => $u->avatar,
+                                'reposted_at' => $repost->created_at
+                            ];
+                        }
+                    }
+
+                    // Backward compatibility / Primary reposter (latest)
+                    if (!empty($reposters)) {
+                        $latest = $reposters[0];
+                        $post->reposter = $latest;
+                    }
                 }
-            }
+                $post->reposters = $reposters;
 
-            return $this->processPostForResponse($post);
+                return $this->processPostForResponse($post);
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Error transforming post ' . $post->id . ': ' . $e->getMessage());
+                return $post; // Return raw post in case of error
+            }
         });
 
         return response()->json($posts);
@@ -208,7 +220,7 @@ class ConnectPostController extends Controller
             if ($request->original_post_id) {
                 // Toggle Repost
                 $postId = $request->original_post_id;
-                $userId = auth()->id();
+                $userId = Auth::id();
                 
                 $exists = DB::table('connect_reposts')
                     ->where('user_id', $userId)
@@ -228,6 +240,13 @@ class ConnectPostController extends Controller
                         'created_at' => now(),
                         'updated_at' => now(),
                     ]);
+
+                    // Notify original author if not self
+                    $originalPost = ConnectPost::find($postId);
+                    if ($originalPost && $originalPost->user_id !== $userId) {
+                        $originalPost->user->notify(new PostReposted(Auth::user(), $originalPost));
+                    }
+
                     return response()->json(['reposted' => true]);
                 }
             }
@@ -239,7 +258,7 @@ class ConnectPostController extends Controller
 
             // Create Post
             $post = ConnectPost::create([
-                'user_id' => auth()->id(),
+                'user_id' => Auth::id(),
                 'category_id' => $parent ? ($parent->category_id ?? null) : $request->category_id,
                 'title' => $parent ? null : $request->title,
                 'content' => $request->input('content'),
@@ -263,8 +282,8 @@ class ConnectPostController extends Controller
                 }
 
                 // Notify parent author if not self
-                if ($parent->user_id !== auth()->id()) {
-                    $parent->user->notify(new PostCommented(auth()->user(), $parent, $request->input('content')));
+                if ($parent->user_id !== Auth::id()) {
+                    $parent->user->notify(new PostCommented(Auth::user(), $parent, $request->input('content')));
                 }
             } else {
                 $post->root_thread_id = $post->id;
@@ -281,7 +300,7 @@ class ConnectPostController extends Controller
     public function like($id)
     {
         $post = ConnectPost::findOrFail($id);
-        $user = auth()->user();
+        $user = Auth::user();
         
         $existingLike = $post->likes()->where('user_id', $user->id)->first();
         
@@ -308,7 +327,7 @@ class ConnectPostController extends Controller
     public function save($id)
     {
         $post = ConnectPost::findOrFail($id);
-        $user = auth()->user();
+        $user = Auth::user();
         
         $exists = DB::table('connect_saved_posts')
             ->where('user_id', $user->id)
@@ -338,7 +357,7 @@ class ConnectPostController extends Controller
         // Anonymity
         if ($post->is_anonymous) {
             // If current user is author, show "You (Anon)"
-            if (auth()->id() === $post->user_id) {
+            if (Auth::id() === $post->user_id) {
                 $post->author_name = 'Вы (Анонимно)';
             } else {
                 $post->user = null; // Hide user object
@@ -349,11 +368,11 @@ class ConnectPostController extends Controller
         }
 
         // Like status
-        $post->is_liked = auth()->check() ? $post->likes()->where('user_id', auth()->id())->exists() : false;
+        $post->is_liked = Auth::check() ? $post->likes()->where('user_id', Auth::id())->exists() : false;
         
         // Saved status
-        $post->is_saved = auth()->check() ? DB::table('connect_saved_posts')
-            ->where('user_id', auth()->id())
+        $post->is_saved = Auth::check() ? DB::table('connect_saved_posts')
+            ->where('user_id', Auth::id())
             ->where('post_id', $post->id)
             ->exists() : false;
 
@@ -366,10 +385,13 @@ class ConnectPostController extends Controller
         }
 
         // Reposted by me?
-        $post->is_reposted = auth()->check() ? DB::table('connect_reposts')
-            ->where('user_id', auth()->id())
+        $myRepost = Auth::check() ? DB::table('connect_reposts')
+            ->where('user_id', Auth::id())
             ->where('post_id', $post->id)
-            ->exists() : false;
+            ->first() : null;
+
+        $post->is_reposted = (bool) $myRepost;
+        $post->my_reposted_at = $myRepost ? $myRepost->created_at : null;
 
         return $post;
     }

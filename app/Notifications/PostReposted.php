@@ -7,14 +7,14 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class PostLiked extends Notification
+class PostReposted extends Notification
 {
     use Queueable;
 
     /**
      * Create a new notification instance.
      */
-    public function __construct(public $liker, public $post)
+    public function __construct(public $reposter, public $post)
     {
         //
     }
@@ -37,13 +37,13 @@ class PostLiked extends Notification
     public function toArray(object $notifiable): array
     {
         return [
-            'type' => 'like',
-            'sender_id' => $this->liker->id,
-            'sender_name' => $this->liker->name,
-            'sender_avatar' => $this->liker->avatar,
+            'type' => 'repost',
+            'sender_id' => $this->reposter->id,
+            'sender_name' => $this->reposter->name,
+            'sender_avatar' => $this->reposter->avatar,
             'post_id' => $this->post->id,
             'post_content' => mb_substr($this->post->content ?? $this->post->title, 0, 50),
-            'message' => 'оценил(а) вашу запись',
+            'message' => 'сделал(а) репост вашей записи',
         ];
     }
 }
