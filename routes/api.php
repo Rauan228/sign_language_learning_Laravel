@@ -2,12 +2,14 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Broadcast;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CourseController;
 use App\Http\Controllers\Api\ModuleController;
 use App\Http\Controllers\Api\LessonController;
 use App\Http\Controllers\Api\ProgressController;
 use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\CareerTestController;
 
 // API v1 routes
@@ -128,6 +130,7 @@ Route::post('/courses/{id}/enroll', [CourseController::class, 'enroll']);
         
         // Course management (admin only - you can add middleware later)
         Route::post('/courses', [CourseController::class, 'store']);
+        Route::post('/reviews', [ReviewController::class, 'store']);
         Route::get('/courses/{id}', [CourseController::class, 'show']);
         Route::put('/courses/{id}', [CourseController::class, 'update']);
         Route::delete('/courses/{id}', [CourseController::class, 'destroy']);

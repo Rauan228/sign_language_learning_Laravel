@@ -11,11 +11,13 @@ class Course extends Model
 
     protected $fillable = [
         'title',
+        'language',
         'description',
         'image',
         'price',
         'difficulty_level',
         'duration_hours',
+        'total_duration_minutes',
         'is_published',
         'instructor_id',
         'tags',
@@ -60,5 +62,10 @@ class Course extends Model
     {
         return $this->belongsToMany(User::class, 'purchases')
                     ->wherePivot('status', 'completed');
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class);
     }
 }

@@ -7,9 +7,14 @@ use App\Models\Course;
 use App\Models\Module;
 use App\Models\Lesson;
 use App\Models\LessonMedia;
+use App\Models\User;
+use App\Models\Purchase;
+use App\Models\Progress;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
 class AdminController extends Controller
@@ -30,7 +35,7 @@ class AdminController extends Controller
     public function createCourse(Request $request)
     {
         // Debug: log incoming request data
-        \Log::info('Course creation request data:', $request->all());
+        Log::info('Course creation request data:', $request->all());
         
         $validator = Validator::make($request->all(), [
             'title' => 'required|string|max:255',
@@ -44,7 +49,7 @@ class AdminController extends Controller
         ]);
 
         if ($validator->fails()) {
-            \Log::error('Course creation validation failed:', $validator->errors()->toArray());
+            Log::error('Course creation validation failed:', $validator->errors()->toArray());
             return response()->json([
                 'success' => false,
                 'errors' => $validator->errors()
@@ -63,7 +68,7 @@ class AdminController extends Controller
             $courseData['image'] = $imagePath;
         }
 
-        $courseData['instructor_id'] = auth()->id();
+        $courseData['instructor_id'] = Auth::id();
         $courseData['is_published'] = false;
 
         $course = Course::create($courseData);
@@ -295,6 +300,25 @@ class AdminController extends Controller
         ]);
     }
 
+    private function updateCourseDuration($courseId)
+    {
+        $course = Course::find($courseId);
+        if ($course) {
+            $totalMinutes = 0;
+            foreach ($course->modules as $module) {
+                $totalMinutes += $module->lessons()->sum('duration_minutes');
+            }
+            
+            // Round up to nearest hour, but keep at least 1 hour if there is content
+            $hours = ceil($totalMinutes / 60);
+            
+            $course->update([
+                'duration_hours' => $hours,
+                'total_duration_minutes' => $totalMinutes
+            ]);
+        }
+    }
+
     public function createLesson(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -304,6 +328,7 @@ class AdminController extends Controller
             'type' => 'required|in:video,gesture,text,quiz',
             'content' => 'nullable|string',
             'order_index' => 'nullable|integer|min:0',
+            'duration_in_minutes' => 'nullable|integer|min:0',
             'video' => 'nullable|mimes:mp4,avi,mov,wmv|max:102400', // 100MB max
             'gesture_model' => 'nullable|mimes:glb,gltf|max:51200', // 50MB max
             'subtitles' => 'nullable|mimes:vtt,srt|max:1024' // 1MB max
@@ -318,6 +343,11 @@ class AdminController extends Controller
 
         $lessonData = $request->only(['title', 'description', 'module_id', 'type', 'content']);
         
+        // Map duration_in_minutes to duration_minutes
+        if ($request->has('duration_in_minutes')) {
+            $lessonData['duration_minutes'] = $request->duration_in_minutes;
+        }
+
         // Auto-set order_index if not provided
         if (!$request->has('order_index')) {
             $maxOrder = Lesson::where('module_id', $request->module_id)->max('order_index');
@@ -327,6 +357,12 @@ class AdminController extends Controller
         }
 
         $lesson = Lesson::create($lessonData);
+
+        // Recalculate course duration
+        $module = Module::find($request->module_id);
+        if ($module) {
+            $this->updateCourseDuration($module->course_id);
+        }
 
         $updateData = [];
         $gestureData = [];
@@ -412,6 +448,7 @@ class AdminController extends Controller
             'type' => 'sometimes|required|in:video,gesture,text,quiz',
             'content' => 'nullable|string',
             'order_index' => 'sometimes|integer|min:0',
+            'duration_in_minutes' => 'nullable|integer|min:0',
             'is_published' => 'boolean',
             'video' => 'nullable|mimes:mp4,avi,mov,wmv|max:102400',
             'gesture_model' => 'nullable|mimes:glb,gltf|max:51200',
@@ -426,6 +463,12 @@ class AdminController extends Controller
         }
 
         $lessonData = $request->only(['title', 'description', 'type', 'content', 'order_index', 'is_published']);
+        
+        // Map duration_in_minutes to duration_minutes
+        if ($request->has('duration_in_minutes')) {
+            $lessonData['duration_minutes'] = $request->duration_in_minutes;
+        }
+
         $gestureData = $lesson->gesture_data ?? [];
 
         // Handle video upload
@@ -489,6 +532,12 @@ class AdminController extends Controller
         }
 
         $lesson->update($lessonData);
+
+        // Recalculate course duration
+        $module = $lesson->module;
+        if ($module) {
+            $this->updateCourseDuration($module->course_id);
+        }
 
         return response()->json([
             'success' => true,
@@ -597,35 +646,35 @@ class AdminController extends Controller
     // Statistics
     public function getStats()
     {
-        $totalUsers = \App\Models\User::count();
+        $totalUsers = User::count();
         $totalCourses = Course::count();
         $totalModules = Module::count();
         $totalLessons = Lesson::count();
         
         // Calculate active students (users who have enrolled in at least one course)
-        $activeStudents = \App\Models\Purchase::where('status', 'completed')
+        $activeStudents = Purchase::where('status', 'completed')
             ->distinct('user_id')
             ->count('user_id');
         
         // Calculate completed lessons count across all users
-        $completedLessons = \App\Models\Progress::where('is_completed', true)->count();
+        $completedLessons = Progress::where('is_completed', true)->count();
         
         // Calculate average rating from courses
         $averageRating = Course::where('rating', '>', 0)->avg('rating') ?? 0;
         
         // Calculate total revenue from purchases
-        $totalRevenue = \App\Models\Purchase::where('status', 'completed')->sum('amount');
+        $totalRevenue = Purchase::where('status', 'completed')->sum('amount');
         
         // Calculate completion rate (percentage of lessons completed vs total possible)
         $totalPossibleLessons = $activeStudents * $totalLessons;
         $completionRate = $totalPossibleLessons > 0 ? round(($completedLessons / $totalPossibleLessons) * 100, 1) : 0;
         
         // Get recent activity data (last 7 days)
-        $recentUsers = \App\Models\User::where('created_at', '>=', now()->subDays(7))->count();
-        $recentEnrollments = \App\Models\Purchase::where('status', 'completed')
+        $recentUsers = User::where('created_at', '>=', now()->subDays(7))->count();
+        $recentEnrollments = Purchase::where('status', 'completed')
             ->where('purchased_at', '>=', now()->subDays(7))
             ->count();
-        $recentCompletedLessons = \App\Models\Progress::where('is_completed', true)
+        $recentCompletedLessons = Progress::where('is_completed', true)
             ->where('completed_at', '>=', now()->subDays(7))
             ->count();
         
@@ -636,7 +685,7 @@ class AdminController extends Controller
             ->limit(5)
             ->get()
             ->map(function ($course) {
-                $revenue = \App\Models\Purchase::where('course_id', $course->id)
+                $revenue = Purchase::where('course_id', $course->id)
                     ->where('status', 'completed')
                     ->sum('amount');
                 return [
@@ -652,10 +701,10 @@ class AdminController extends Controller
         $userActivity = [];
         for ($i = 6; $i >= 0; $i--) {
             $date = now()->subDays($i);
-            $activeUsersCount = \App\Models\Progress::whereDate('updated_at', $date->toDateString())
+            $activeUsersCount = Progress::whereDate('updated_at', $date->toDateString())
                 ->distinct('user_id')
                 ->count('user_id');
-            $newRegistrations = \App\Models\User::whereDate('created_at', $date->toDateString())->count();
+            $newRegistrations = User::whereDate('created_at', $date->toDateString())->count();
             
             $userActivity[] = [
                 'date' => $date->format('Y-m-d'),

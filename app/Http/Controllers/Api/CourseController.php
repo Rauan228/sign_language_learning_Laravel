@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Course;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth;
 
 class CourseController extends Controller
 {
@@ -67,7 +68,7 @@ class CourseController extends Controller
      */
     public function show(string $id)
     {
-        $course = Course::with(['modules.lessons'])->find($id);
+        $course = Course::with(['modules.lessons', 'reviews.user'])->find($id);
         
         if (!$course) {
             return response()->json([
@@ -76,9 +77,23 @@ class CourseController extends Controller
             ], 404);
         }
 
+        // Transform reviews to match frontend expectation (recent_reviews)
+        // If frontend expects 'recent_reviews' at top level of course object
+        $courseData = $course->toArray();
+        $courseData['recent_reviews'] = $course->reviews->sortByDesc('created_at')->take(5)->values()->map(function($review) {
+            return [
+                'id' => $review->id,
+                'user_name' => $review->user->name,
+                'user_avatar' => $review->user->avatar,
+                'rating' => $review->rating,
+                'comment' => $review->comment,
+                'created_at' => $review->created_at,
+            ];
+        });
+
         return response()->json([
             'success' => true,
-            'data' => $course
+            'data' => $courseData
         ]);
     }
 
@@ -279,7 +294,7 @@ class CourseController extends Controller
      */
     public function checkAccess($courseId)
     {
-        $user = auth()->user();
+        $user = Auth::user();
         
         if (!$user) {
             return response()->json([
@@ -317,7 +332,7 @@ class CourseController extends Controller
      */
     public function getProgress($courseId)
     {
-        $user = auth()->user();
+        $user = Auth::user();
         
         if (!$user) {
             return response()->json([
@@ -394,7 +409,7 @@ class CourseController extends Controller
      */
     public function markLessonComplete($courseId, $lessonId)
     {
-        $user = auth()->user();
+        $user = Auth::user();
         
         if (!$user) {
             return response()->json([

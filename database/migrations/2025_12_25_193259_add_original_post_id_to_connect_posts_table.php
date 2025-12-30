@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('connect_posts', function (Blueprint $table) {
-            $table->foreignId('original_post_id')->nullable()->after('type')->constrained('connect_posts')->nullOnDelete();
-        });
+        if (!Schema::hasColumn('connect_posts', 'original_post_id')) {
+            Schema::table('connect_posts', function (Blueprint $table) {
+                $table->foreignId('original_post_id')->nullable()->after('type')->constrained('connect_posts')->nullOnDelete();
+            });
+        }
     }
 
     /**
